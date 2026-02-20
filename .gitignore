@@ -1,0 +1,16 @@
+node_modules/
+logs/
+.env
+.claude/
+
+# Sensitive files — never commit
+App Creds.png
+slack.txt
+token.txt
+nul
+
+# Local dev config
+ngrok.yml
+
+# Temp files
+3be4682f-*.png
