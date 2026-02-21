@@ -40,7 +40,7 @@ function escapeHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function loginPage(error = '') {
+function loginPage(error = '', installed = false) {
   const hasSlack = !!process.env.SLACK_CLIENT_ID;
   const hasSecret = !!process.env.ADMIN_SECRET;
 
@@ -168,6 +168,7 @@ function loginPage(error = '') {
     <img src="/public/logo.png" alt="IntentGuard">
     <h1><span>IntentGuard</span></h1>
     <p>${hasSlack ? 'Sign in with your Slack workspace to access the dashboard.' : 'Enter your admin secret to access the dashboard.'}</p>
+    ${installed ? '<div style="background:#2ea043;color:#fff;padding:10px 12px;border-radius:6px;font-size:13px;margin-bottom:16px;">Workspace connected! Sign in to continue.</div>' : ''}
     ${error ? `<div class="error">${escapeHtml(error)}</div>` : ''}
     ${hasSlack ? `<a class="slack-btn" href="/admin/auth/authorize">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 124 124" fill="none"><path d="M26.3996 78.2003C26.3996 85.3003 20.5996 91.1003 13.4996 91.1003C6.39961 91.1003 0.599609 85.3003 0.599609 78.2003C0.599609 71.1003 6.39961 65.3003 13.4996 65.3003H26.3996V78.2003Z" fill="#E01E5A"/><path d="M32.9004 78.2003C32.9004 71.1003 38.7004 65.3003 45.8004 65.3003C52.9004 65.3003 58.7004 71.1003 58.7004 78.2003V110.5C58.7004 117.6 52.9004 123.4 45.8004 123.4C38.7004 123.4 32.9004 117.6 32.9004 110.5V78.2003Z" fill="#E01E5A"/><path d="M45.8004 26.4001C38.7004 26.4001 32.9004 20.6001 32.9004 13.5001C32.9004 6.4001 38.7004 0.600098 45.8004 0.600098C52.9004 0.600098 58.7004 6.4001 58.7004 13.5001V26.4001H45.8004Z" fill="#36C5F0"/><path d="M45.7996 32.8999C52.8996 32.8999 58.6996 38.6999 58.6996 45.7999C58.6996 52.8999 52.8996 58.6999 45.7996 58.6999H13.4996C6.39961 58.6999 0.599609 52.8999 0.599609 45.7999C0.599609 38.6999 6.39961 32.8999 13.4996 32.8999H45.7996Z" fill="#36C5F0"/><path d="M97.5996 45.7999C97.5996 38.6999 103.4 32.8999 110.5 32.8999C117.6 32.8999 123.4 38.6999 123.4 45.7999C123.4 52.8999 117.6 58.6999 110.5 58.6999H97.5996V45.7999Z" fill="#2EB67D"/><path d="M91.0988 45.8001C91.0988 52.9001 85.2988 58.7001 78.1988 58.7001C71.0988 58.7001 65.2988 52.9001 65.2988 45.8001V13.5001C65.2988 6.4001 71.0988 0.600098 78.1988 0.600098C85.2988 0.600098 91.0988 6.4001 91.0988 13.5001V45.8001Z" fill="#2EB67D"/><path d="M78.1988 97.6001C85.2988 97.6001 91.0988 103.4 91.0988 110.5C91.0988 117.6 85.2988 123.4 78.1988 123.4C71.0988 123.4 65.2988 117.6 65.2988 110.5V97.6001H78.1988Z" fill="#ECB22E"/><path d="M78.1988 91.1003C71.0988 91.1003 65.2988 85.3003 65.2988 78.2003C65.2988 71.1003 71.0988 65.3003 78.1988 65.3003H110.499C117.599 65.3003 123.399 71.1003 123.399 78.2003C123.399 85.3003 117.599 91.1003 110.499 91.1003H78.1988Z" fill="#ECB22E"/></svg>
@@ -244,7 +245,7 @@ loginRouter.get('/', (req, res) => {
   if (!process.env.ADMIN_SECRET && !process.env.SLACK_CLIENT_ID) {
     return res.redirect('/admin/evaluations');
   }
-  res.send(loginPage());
+  res.send(loginPage('', req.query.installed === '1'));
 });
 
 // POST /admin/login — validate secret and set cookie

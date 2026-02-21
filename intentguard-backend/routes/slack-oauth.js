@@ -3,7 +3,8 @@ const express = require('express');
 const { WebClient } = require('@slack/web-api');
 const logger = require('../lib/logger');
 const { upsertWorkspace, seedWorkspaceSettings } = require('../lib/db');
-const { invalidateClientCache } = require('../lib/slack-client');
+const { invalidateClientCache, getSlackClient } = require('../lib/slack-client');
+const { createSession, COOKIE_NAME, COOKIE_MAX_AGE } = require('../lib/auth');
 const { buildNav } = require('../lib/nav');
 
 const router = express.Router();
@@ -126,7 +127,44 @@ router.get('/callback', async (req, res) => {
 
     logger.info({ teamId, teamName, botUserId }, 'Slack workspace installed via OAuth');
 
-    res.redirect('/admin/integrations/slack?installed=1');
+    // Auto-sign-in: the installing user is almost certainly a workspace admin
+    const authedUserId = result.authed_user?.id;
+    if (authedUserId) {
+      try {
+        const client = await getSlackClient(teamId);
+        const userInfoResult = await client.users.info({ user: authedUserId });
+        const isAdmin = userInfoResult.user?.is_admin || userInfoResult.user?.is_owner;
+
+        if (isAdmin) {
+          const displayName = userInfoResult.user?.real_name || userInfoResult.user?.name || 'Admin';
+          const sessionValue = createSession({
+            type: 'slack',
+            userId: authedUserId,
+            teamId,
+            teamName,
+            displayName,
+            isAdmin: true,
+          });
+
+          if (sessionValue) {
+            res.cookie(COOKIE_NAME, sessionValue, {
+              httpOnly: true,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax',
+              maxAge: COOKIE_MAX_AGE,
+              path: '/',
+            });
+            logger.info({ teamId, authedUserId, displayName }, 'Auto-signed in installing admin');
+            return res.redirect('/admin/integrations/slack?installed=1');
+          }
+        }
+      } catch (signInErr) {
+        logger.warn({ err: signInErr, teamId, authedUserId }, 'Auto-sign-in after install failed, falling back to login');
+      }
+    }
+
+    // Fallback: redirect to login if auto-sign-in didn't work
+    res.redirect('/admin/login?installed=1');
   } catch (err) {
     logger.error({ err }, 'Slack OAuth callback failed');
     res.redirect('/admin/integrations/slack?error=oauth_failed');
