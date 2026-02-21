@@ -1,12 +1,15 @@
 {
   "name": "intentguard-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "AI-powered DLP that catches attachment mis-sends before they leak",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch --watch-preserve-output server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "keywords": [],
   "author": "",

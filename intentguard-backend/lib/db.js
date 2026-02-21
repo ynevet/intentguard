@@ -2,9 +2,14 @@ const { Pool } = require('pg');
 const logger = require('./logger');
 
 const isProduction = process.env.NODE_ENV === 'production';
-const connectionString = isProduction
+const rawConnectionString = isProduction
   ? process.env.POSTGRES_URL
   : process.env.DATABASE_URL;
+
+// Strip sslmode/supa params from Supabase URLs — pg driver handles SSL via pool config
+const connectionString = isProduction
+  ? rawConnectionString.replace(/[?&](sslmode|supa)=[^&]*/g, '').replace(/\?$/, '')
+  : rawConnectionString;
 
 const pool = new Pool({
   connectionString,
