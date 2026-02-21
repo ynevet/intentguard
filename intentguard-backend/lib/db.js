@@ -1,9 +1,15 @@
 const { Pool } = require('pg');
 const logger = require('./logger');
 
+const isProduction = process.env.NODE_ENV === 'production';
+const connectionString = isProduction
+  ? process.env.POSTGRES_URL
+  : process.env.DATABASE_URL;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
   max: 10,
+  ...(isProduction ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 
 pool.on('error', (err) => {
