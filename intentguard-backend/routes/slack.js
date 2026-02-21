@@ -1,10 +1,10 @@
 const crypto = require('crypto');
 const express = require('express');
 const logger = require('../lib/logger');
-const { getSlackClient, getSlackUserClient, getBotToken } = require('../lib/slack-client');
+const { getSlackClient, getSlackUserClient, getBotToken, invalidateClientCache } = require('../lib/slack-client');
 const { analyzeMessage } = require('../lib/risk-engine');
 const { saveEvaluation, recordEvent } = require('../lib/evaluation-store');
-const { getSetting, saveResendContext, getResendContext, deleteResendContext, getWorkspace } = require('../lib/db');
+const { getSetting, saveResendContext, getResendContext, deleteResendContext, getWorkspace, upsertWorkspace } = require('../lib/db');
 const { joinChannel } = require('../lib/channel-join');
 
 const router = express.Router();
@@ -325,6 +325,14 @@ async function processEvent(payload) {
       joinChannel(channelId, workspaceId).catch((err) => {
         logger.error({ err, channelId }, 'Auto-join on channel_created failed');
       });
+    }
+  } else if (event.type === 'app_uninstalled' || event.type === 'tokens_revoked') {
+    try {
+      await upsertWorkspace({ id: workspaceId, status: 'inactive' });
+      invalidateClientCache(workspaceId);
+      logger.info({ workspaceId, eventType: event.type }, 'Workspace deactivated');
+    } catch (err) {
+      logger.error({ err, workspaceId, eventType: event.type }, 'Failed to deactivate workspace');
     }
   } else {
     logger.info({

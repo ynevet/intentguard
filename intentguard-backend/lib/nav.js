@@ -1,9 +1,10 @@
 /**
  * Shared navigation bar builder.
  * @param {string} activePage - 'home' | 'features' | 'admin' | 'integrations' | 'integrations-slack'
+ * @param {object} [session] - Optional session object from auth middleware
  * @returns {string} HTML string for the nav bar
  */
-function buildNav(activePage) {
+function buildNav(activePage, session) {
   const link = (href, label, page) => {
     const isActive = activePage === page;
     const color = isActive ? '#58a6ff' : '#8b949e';
@@ -23,6 +24,12 @@ function buildNav(activePage) {
     integrationsHtml = link('/admin/integrations', 'Integrations', 'integrations');
   }
 
+  const teamBadge = session?.teamName
+    ? `<span style="color:#8b949e;font-size:12px;background:#21262d;padding:3px 10px;border-radius:4px;margin-left:auto;">${escapeHtml(session.teamName)}</span>`
+    : '';
+
+  const logoutMargin = teamBadge ? '' : 'margin-left:auto;';
+
   return `<nav style="background:#161b22;border-bottom:1px solid #21262d;padding:12px 24px;display:flex;align-items:center;gap:20px;">
   <a href="/" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:#e6edf3;font-weight:700;font-size:16px;">
     <img src="/public/logo.png" alt="IntentGuard" style="height:28px;width:28px;">IntentGuard
@@ -31,8 +38,14 @@ function buildNav(activePage) {
   ${link('/admin/evaluations', 'Evaluations', 'admin')}
   ${link('/admin/stats', 'Stats', 'stats')}
   ${integrationsHtml}
-  <a href="/admin/login/logout" style="color:#8b949e;text-decoration:none;font-size:13px;margin-left:auto;">Logout</a>
+  ${teamBadge}
+  <a href="/admin/login/logout" style="color:#8b949e;text-decoration:none;font-size:13px;${logoutMargin}">Logout</a>
 </nav>`;
+}
+
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 module.exports = { buildNav };

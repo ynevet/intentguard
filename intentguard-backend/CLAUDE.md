@@ -22,17 +22,17 @@ Start Postgres first: `docker compose up -d` from the repo root.
 
 ### Entry Point
 
-- **`server.js`** — Mounts routers, serves health check, gates startup behind `initDb()`. Runs scheduled jobs per-workspace via `forEachWorkspace()`: retention cleanup (6h), monthly rollup (6h), auto-join channels (5m). Global jobs: resend context cleanup (30m), Supabase keep-alive (6h). Public routes: `/slack`, `/slack/oauth`, `/admin/login`. Protected routes (behind `requireAuth`): `/admin/*`, `/features`, `/`.
+- **`server.js`** — Mounts routers, serves health check, gates startup behind `initDb()`. Runs scheduled jobs per-workspace via `forEachWorkspace()`: retention cleanup (6h), monthly rollup (6h), auto-join channels (5m). Global jobs: resend context cleanup (30m), Supabase keep-alive (6h). Public routes: `/slack`, `/slack/oauth`, `/admin/login`, `/admin/auth`. Protected routes (behind `requireAuth`): `/admin/*`, `/features`, `/`.
 
 ### Routes
 
-- **`routes/slack.js`** — `POST /slack/events`: raw body parsing, HMAC-SHA256 verification, immediate 200 ack, async processing. Resolves workspace from `payload.team_id` via DB lookup (falls back to `'default'` if env vars set). Guards: thread replies, bots, disabled analysis, channel monitoring/exclusion. Handles DM re-send replies. Contains `reactToAssessment()` (mismatch → delete files + DM; match → checkmark; uncertain → question mark). All Slack API calls use per-workspace clients.
+- **`routes/slack.js`** — `POST /slack/events`: raw body parsing, HMAC-SHA256 verification, immediate 200 ack, async processing. Resolves workspace from `payload.team_id` via DB lookup (falls back to `'default'` if env vars set). Guards: thread replies, bots, disabled analysis, channel monitoring/exclusion. Handles DM re-send replies. Contains `reactToAssessment()` (mismatch → delete files + DM; match → checkmark; uncertain → question mark). Handles `app_uninstalled` and `tokens_revoked` events (marks workspace inactive, clears client cache). All Slack API calls use per-workspace clients.
 - **`routes/slack-oauth.js`** — Slack OAuth V2 flow. `GET /authorize`: CSRF state + redirect to Slack. `GET /callback`: exchanges code for tokens via `oauth.v2.access`, stores workspace in DB, seeds default settings, invalidates client cache. `GET /install`: public "Add to Slack" landing page. State stored in-memory Map with 10-min TTL.
-- **`routes/admin.js`** — `GET /admin/evaluations`: paginated HTML table (25/page, excludes skipped). `GET/POST /admin/settings`: global analysis toggle + retention days.
-- **`routes/admin-login.js`** — `GET/POST /admin/login`, `GET /admin/login/logout`. Cookie-based session auth.
-- **`routes/admin-stats.js`** — `GET /admin/stats`: analytics dashboard with live current-month queries + last-month comparison.
+- **`routes/admin.js`** — `GET /admin/evaluations`: paginated HTML table (25/page, excludes skipped), tenant-scoped via `req.workspaceId`. `GET/POST /admin/settings`: analysis toggle + retention days, tenant-scoped.
+- **`routes/admin-login.js`** — Exports `{ loginRouter, authRouter }`. Login router (`/admin/login`): dual login page ("Sign in with Slack" primary when `SLACK_CLIENT_ID` set, password fallback when `ADMIN_SECRET` set), `GET/POST /admin/login`, `GET /admin/login/logout`. Auth router (`/admin/auth`): Slack OpenID Connect flow — `GET /authorize` redirects to Slack, `GET /callback` exchanges code, verifies workspace exists + user is admin, creates signed session cookie.
+- **`routes/admin-stats.js`** — `GET /admin/stats`: analytics dashboard with live current-month queries + last-month comparison, tenant-scoped via `req.workspaceId`.
 - **`routes/admin-integrations.js`** — `GET /admin/integrations`: integration hub page. Shows DB-backed connected workspace count. "+ Add Workspace" card when `SLACK_CLIENT_ID` is set.
-- **`routes/admin-integrations-slack.js`** — `GET/POST /admin/integrations/slack`: channel monitoring, alert thresholds, strict audience blocking, excluded channels. Shows connected workspaces list from DB. Handles `?installed=1` success toast and `?error=` OAuth error toast.
+- **`routes/admin-integrations-slack.js`** — `GET/POST /admin/integrations/slack`: channel monitoring, alert thresholds, strict audience blocking, excluded channels, all tenant-scoped via `req.workspaceId`. Shows connected workspaces list from DB. Handles `?installed=1` success toast and `?error=` OAuth error toast.
 - **`routes/features.js`** — `GET /features`: static product features marketing page.
 
 ### Core Libraries
@@ -55,13 +55,13 @@ Start Postgres first: `docker compose up -d` from the repo root.
 
 - **`lib/rollup.js`** — `rollupMonthlySummary(workspaceId)`: aggregates current month data into `monthly_summaries` via upsert. Tracks: scans, files, verdicts, detection methods, estimated cost savings, top mismatch types/channels/users.
 
-- **`lib/auth.js`** — `requireAuth` middleware: validates `ig_session` cookie (HMAC of ADMIN_SECRET). Skips auth entirely if `ADMIN_SECRET` unset (local dev). `validateLogin(secret)` for login form.
+- **`lib/auth.js`** — Signed-cookie session model with dual auth. Cookie format: `base64(JSON).hmac_sha256`, signed with `SLACK_CLIENT_SECRET || ADMIN_SECRET`. Session payload includes `type` ('slack'|'admin_secret'), `teamId`, `teamName`, `displayName`, `isAdmin`, `exp`. Exports: `createSession(payload)`, `parseSession(cookieValue)`, `requireAuth` middleware (sets `req.session` + `req.workspaceId`; tries signed session first, falls back to legacy ADMIN_SECRET token; skips auth if neither configured), `validateLogin(secret)`. `ADMIN_SECRET` login gets `workspaceId = 'default'`; Slack login gets `workspaceId = teamId`.
 
 - **`lib/slack-client.js`** — Per-workspace Slack client factory with `Map` caching. `getSlackClient(workspaceId)`: returns `WebClient` for bot token (DB first, env var fallback for `'default'`). `getSlackUserClient(workspaceId)`: same for user token, returns `null` if none. `getBotToken(workspaceId)`: raw token string for `fetch()` calls. `invalidateClientCache(workspaceId)`: clears cache after OAuth re-auth. Lazy `require('./db')` avoids circular dependency.
 
 - **`lib/logger.js`** — Pino logger with dual transport: daily file rotation (logs/, 14-day, 20MB) + pretty console. Redacts: event.text, reasoning, file URLs, file findings.
 
-- **`lib/nav.js`** — `buildNav(activePage)`: shared HTML nav bar for all admin pages.
+- **`lib/nav.js`** — `buildNav(activePage, session)`: shared HTML nav bar for all admin pages. Shows workspace name badge when `session.teamName` is set.
 
 ## Key Patterns
 

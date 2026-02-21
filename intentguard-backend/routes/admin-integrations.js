@@ -64,7 +64,7 @@ router.get('/', async (req, res) => {
   </style>
 </head>
 <body>
-  ${buildNav('integrations')}
+  ${buildNav('integrations', req.session)}
   <div class="content">
     <h1>Integrations</h1>
     <p class="meta">Manage platform-specific settings for each connected integration.</p>

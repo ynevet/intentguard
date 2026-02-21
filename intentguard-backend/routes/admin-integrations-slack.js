@@ -25,12 +25,12 @@ router.get('/', async (req, res) => {
     const slackWorkspaces = workspaces.filter((ws) => ws.platform === 'slack' && ws.bot_token);
     const hasEnvToken = !!process.env.SLACK_BOT_TOKEN;
     const hasOAuth = !!process.env.SLACK_CLIENT_ID;
-    const monitoredChannels = await getSetting('slack.monitored_channels') || '';
-    const excludedChannels = await getSetting('slack.excluded_channels') || '';
-    const warningThreshold = await getSetting('slack.warning_threshold') || '50';
-    const dmThreshold = await getSetting('slack.delete_threshold') || '70';
-    const strictAudienceBlocking = (await getSetting('slack.strict_audience_blocking') || 'false') === 'true';
-    const autoJoinChannels = (await getSetting('slack.auto_join_channels') || 'true') === 'true';
+    const monitoredChannels = await getSetting('slack.monitored_channels', req.workspaceId) || '';
+    const excludedChannels = await getSetting('slack.excluded_channels', req.workspaceId) || '';
+    const warningThreshold = await getSetting('slack.warning_threshold', req.workspaceId) || '50';
+    const dmThreshold = await getSetting('slack.delete_threshold', req.workspaceId) || '70';
+    const strictAudienceBlocking = (await getSetting('slack.strict_audience_blocking', req.workspaceId) || 'false') === 'true';
+    const autoJoinChannels = (await getSetting('slack.auto_join_channels', req.workspaceId) || 'true') === 'true';
 
     res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -65,7 +65,7 @@ router.get('/', async (req, res) => {
   </style>
 </head>
 <body>
-  ${buildNav('integrations-slack')}
+  ${buildNav('integrations-slack', req.session)}
   <div class="content">
     <div class="breadcrumb"><a href="/admin/integrations">Integrations</a> / Slack</div>
     <h1>Slack Integration</h1>
@@ -142,28 +142,28 @@ router.get('/', async (req, res) => {
 router.post('/', express.urlencoded({ extended: false }), async (req, res) => {
   try {
     const monitoredChannels = (req.body.monitored_channels || '').trim();
-    await setSetting('slack.monitored_channels', monitoredChannels);
+    await setSetting('slack.monitored_channels', monitoredChannels, req.workspaceId);
 
     const excludedChannels = (req.body.excluded_channels || '').trim();
-    await setSetting('slack.excluded_channels', excludedChannels);
+    await setSetting('slack.excluded_channels', excludedChannels, req.workspaceId);
 
     const warningThreshold = parseInt(req.body.warning_threshold, 10);
     if (Number.isNaN(warningThreshold) || warningThreshold < 0 || warningThreshold > 100) {
       return res.status(400).send('Warning threshold must be between 0 and 100');
     }
-    await setSetting('slack.warning_threshold', String(warningThreshold));
+    await setSetting('slack.warning_threshold', String(warningThreshold), req.workspaceId);
 
     const dmThreshold = parseInt(req.body.delete_threshold, 10);
     if (Number.isNaN(dmThreshold) || dmThreshold < 0 || dmThreshold > 100) {
       return res.status(400).send('DM threshold must be between 0 and 100');
     }
-    await setSetting('slack.delete_threshold', String(dmThreshold));
+    await setSetting('slack.delete_threshold', String(dmThreshold), req.workspaceId);
 
     const strictAudienceBlocking = req.body.strict_audience_blocking === 'on' ? 'true' : 'false';
-    await setSetting('slack.strict_audience_blocking', strictAudienceBlocking);
+    await setSetting('slack.strict_audience_blocking', strictAudienceBlocking, req.workspaceId);
 
     const autoJoinChannels = req.body.auto_join_channels === 'on' ? 'true' : 'false';
-    await setSetting('slack.auto_join_channels', autoJoinChannels);
+    await setSetting('slack.auto_join_channels', autoJoinChannels, req.workspaceId);
 
     logger.info({ monitoredChannels, excludedChannels, warningThreshold, dmThreshold, strictAudienceBlocking, autoJoinChannels }, 'Slack integration settings updated');
     res.redirect('/admin/integrations/slack?saved=1');

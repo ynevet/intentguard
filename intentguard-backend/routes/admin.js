@@ -43,8 +43,8 @@ function mismatchTypeBadge(type) {
 
 router.get('/settings', async (req, res) => {
   try {
-    const analysisEnabled = await getSetting('analysis_enabled') || 'true';
-    const retentionDays = await getSetting('retention_days') || '90';
+    const analysisEnabled = await getSetting('analysis_enabled', req.workspaceId) || 'true';
+    const retentionDays = await getSetting('retention_days', req.workspaceId) || '90';
     res.json({
       analysis_enabled: analysisEnabled === 'true',
       retention_days: parseInt(retentionDays, 10),
@@ -59,14 +59,14 @@ router.post('/settings', express.urlencoded({ extended: false }), async (req, re
   try {
     // Analysis enabled (checkbox: present = true, absent = false)
     const analysisEnabled = req.body.analysis_enabled === 'on' ? 'true' : 'false';
-    await setSetting('analysis_enabled', analysisEnabled);
+    await setSetting('analysis_enabled', analysisEnabled, req.workspaceId);
 
     // Retention days
     const retentionDays = parseInt(req.body.retention_days, 10);
     if (Number.isNaN(retentionDays) || retentionDays < 0 || retentionDays > 3650) {
       return res.status(400).send('Retention days must be between 0 and 3650');
     }
-    await setSetting('retention_days', String(retentionDays));
+    await setSetting('retention_days', String(retentionDays), req.workspaceId);
 
     logger.info({ analysis_enabled: analysisEnabled, retention_days: retentionDays }, 'Global settings updated');
     res.redirect('/admin/evaluations?saved=1');
@@ -80,20 +80,21 @@ router.get('/evaluations', async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const saved = req.query.saved === '1';
-    const analysisEnabled = (await getSetting('analysis_enabled') || 'true') === 'true';
-    const retentionDays = await getSetting('retention_days') || '90';
+    const analysisEnabled = (await getSetting('analysis_enabled', req.workspaceId) || 'true') === 'true';
+    const retentionDays = await getSetting('retention_days', req.workspaceId) || '90';
     const limit = DEFAULT_PAGE_SIZE;
     const offset = (page - 1) * limit;
 
     const countResult = await pool.query(
-      "SELECT COUNT(*) FROM evaluations WHERE workspace_id = 'default' AND match != 'skipped'",
+      "SELECT COUNT(*) FROM evaluations WHERE workspace_id = $1 AND match != 'skipped'",
+      [req.workspaceId],
     );
     const total = parseInt(countResult.rows[0].count, 10);
     const totalPages = Math.max(1, Math.ceil(total / limit));
 
     const { rows } = await pool.query(
-      "SELECT * FROM evaluations WHERE workspace_id = 'default' AND match != 'skipped' ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-      [limit, offset],
+      "SELECT * FROM evaluations WHERE workspace_id = $1 AND match != 'skipped' ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+      [req.workspaceId, limit, offset],
     );
 
     const tableRows = rows.map((r) => {
@@ -185,7 +186,7 @@ router.get('/evaluations', async (req, res) => {
   </style>
 </head>
 <body>
-  ${buildNav('admin')}
+  ${buildNav('admin', req.session)}
   <div class="content">
   <h1>Evaluation History</h1>
   <p class="meta" style="margin-bottom:8px;">Audit trail of all file verification results.</p>

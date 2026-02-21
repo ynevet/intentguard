@@ -9,7 +9,7 @@ const { requireAuth } = require('./lib/auth');
 const slackRouter = require('./routes/slack');
 const slackOAuthRouter = require('./routes/slack-oauth');
 const adminRouter = require('./routes/admin');
-const adminLoginRouter = require('./routes/admin-login');
+const { loginRouter: adminLoginRouter, authRouter: adminAuthRouter } = require('./routes/admin-login');
 const featuresRouter = require('./routes/features');
 const integrationsRouter = require('./routes/admin-integrations');
 const integrationsSlackRouter = require('./routes/admin-integrations-slack');
@@ -29,6 +29,7 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use('/slack/oauth', slackOAuthRouter);
 app.use('/slack', slackRouter);
 app.use('/admin/login', adminLoginRouter);
+app.use('/admin/auth', adminAuthRouter);
 
 // Protected routes (require auth)
 app.use('/admin/integrations/slack', requireAuth, integrationsSlackRouter);
@@ -103,7 +104,7 @@ app.get('/', requireAuth, (req, res) => {
   </style>
 </head>
 <body>
-  ${buildNav('home')}
+  ${buildNav('home', req.session)}
   <div class="hero">
     <img src="/public/logo.png" alt="IntentGuard logo">
     <h1><span>IntentGuard</span></h1>

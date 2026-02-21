@@ -6,7 +6,7 @@ const logger = require('../lib/logger');
 const router = express.Router();
 
 router.get('/', async (req, res) => {
-  const workspaceId = 'default';
+  const workspaceId = req.workspaceId;
 
   try {
     // ── Live stats for current month ──
@@ -176,7 +176,7 @@ router.get('/', async (req, res) => {
   </style>
 </head>
 <body>
-  ${buildNav('stats')}
+  ${buildNav('stats', req.session)}
   <div class="content">
     <h1>Analytics Dashboard</h1>
     <p class="meta">Current month overview &mdash; ${now.toLocaleString('default', { month: 'long', year: 'numeric' })}</p>

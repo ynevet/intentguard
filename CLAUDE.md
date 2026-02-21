@@ -50,9 +50,11 @@ On mismatch DM, a `resend_contexts` row is stored (DB-backed, 24h TTL). If the u
 
 ### Admin Dashboard
 
-Server-rendered HTML pages (dark theme, no frontend framework):
-- `/admin/login` — Cookie-based auth (HMAC of `ADMIN_SECRET`; skipped if unset)
-- `/admin/evaluations` — Paginated evaluation history + global settings (analysis toggle, retention days)
+Server-rendered HTML pages (dark theme, no frontend framework), **tenant-scoped** via `req.workspaceId`:
+- `/admin/login` — Dual login: "Sign in with Slack" (OpenID Connect, primary when `SLACK_CLIENT_ID` set) + password fallback (`ADMIN_SECRET`). Skipped if neither configured (local dev).
+- `/admin/auth/authorize` — Redirects to Slack OpenID Connect
+- `/admin/auth/callback` — Exchanges code for token, verifies workspace installed + user is admin, creates signed session
+- `/admin/evaluations` — Paginated evaluation history + workspace settings (analysis toggle, retention days)
 - `/admin/stats` — Analytics: verdicts, detection breakdown, mismatch types, risk channels/users, cost savings
 - `/admin/integrations` — Integration hub (Slack active; Teams/Email coming soon)
 - `/admin/integrations/slack` — Channel monitoring, alert thresholds, strict audience blocking, excluded channels
@@ -70,6 +72,8 @@ Server-rendered HTML pages (dark theme, no frontend framework):
 - **Each router owns its own body parsing** — Slack needs `express.raw()`, admin routes use `express.urlencoded()`
 - **Per-workspace Slack clients** — `slack-client.js` is a factory (`getSlackClient(workspaceId)`) with `Map` caching; falls back to env vars for `'default'` workspace
 - **Multi-workspace via OAuth** — Slack OAuth V2 flow stores per-workspace tokens in the `workspaces` table; `processEvent()` resolves workspace from `payload.team_id`; env-var single-workspace setups continue working unchanged
+- **Tenant-scoped admin dashboard** — `requireAuth` middleware sets `req.workspaceId` from signed session cookie. Slack sign-in scopes to the authenticated workspace; `ADMIN_SECRET` login scopes to `'default'`. All dashboard queries, settings reads/writes use `req.workspaceId`. Nav bar shows workspace name.
+- **App lifecycle events** — `app_uninstalled` and `tokens_revoked` Slack events mark workspace as `inactive` and clear client cache
 
 ### Database Schema (Postgres 17)
 
@@ -91,14 +95,14 @@ Configured in `intentguard-backend/.env`:
 | `SLACK_SIGNING_SECRET` | HMAC-SHA256 signature verification (skipped if unset) |
 | `SLACK_BOT_TOKEN` | Bot token for Slack API calls and file downloads (fallback for `default` workspace; OAuth installs store tokens in DB) |
 | `SLACK_USER_TOKEN` | User token for deleting user-uploaded files (optional, requires files:write; fallback for `default` workspace) |
-| `SLACK_CLIENT_ID` | Slack app Client ID — enables OAuth multi-workspace install flow |
-| `SLACK_CLIENT_SECRET` | Slack app Client Secret — required with `SLACK_CLIENT_ID` |
-| `SLACK_OAUTH_REDIRECT_URI` | OAuth callback URL, e.g. `https://your-domain.com/slack/oauth/callback` |
+| `SLACK_CLIENT_ID` | Slack app Client ID — enables OAuth multi-workspace install flow + "Sign in with Slack" admin auth |
+| `SLACK_CLIENT_SECRET` | Slack app Client Secret — required with `SLACK_CLIENT_ID`; also used as session cookie signing secret |
+| `SLACK_OAUTH_REDIRECT_URI` | OAuth callback URL, e.g. `https://your-domain.com/slack/oauth/callback`. Admin auth callback derived automatically (`/admin/auth/callback`). |
 | `OPENAI_API_KEY` | OpenAI GPT-4o-mini analysis (risk engine skips if unset) |
 | `DATABASE_URL` | PostgreSQL connection string — local dev |
 | `POSTGRES_URL` | PostgreSQL connection string — production (Supabase, SSL enabled) |
 | `NODE_ENV` | `production` uses `POSTGRES_URL` + SSL; otherwise uses `DATABASE_URL` |
-| `ADMIN_SECRET` | Admin dashboard password (auth skipped if unset — local dev convenience) |
+| `ADMIN_SECRET` | Admin dashboard password — optional super-admin fallback (sees `'default'` workspace). Auth skipped if both `ADMIN_SECRET` and `SLACK_CLIENT_ID` are unset (local dev convenience). |
 | `PORT` | Server port (default: 3000) |
 
 ## Tech Stack
@@ -109,6 +113,6 @@ Configured in `intentguard-backend/.env`:
 - **Database:** PostgreSQL 17 via `pg`
 - **File parsing:** pdf-parse, mammoth (DOCX), xlsx, officeparser (PPTX), csv-parse
 - **Logging:** Pino with daily file rotation (pino-roll) + pretty console (pino-pretty)
-- **Auth:** cookie-parser + HMAC session cookies
+- **Auth:** cookie-parser + signed session cookies (HMAC-SHA256), Slack OpenID Connect for workspace admin auth
 
 See `intentguard-backend/CLAUDE.md` for module-level detail.

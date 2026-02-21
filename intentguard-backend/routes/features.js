@@ -133,7 +133,7 @@ router.get('/', (req, res) => {
 </head>
 <body>
 
-  ${buildNav('features')}
+  ${buildNav('features', req.session)}
 
   <!-- Hero -->
   <div class="hero">
