@@ -156,6 +156,17 @@ initDb()
     setInterval(() => {
       cleanupExpiredResendContexts().catch((err) => logger.error({ err }, 'Resend context cleanup failed'));
     }, 30 * 60 * 1000);
+
+    // Keep Supabase free-tier project alive (pauses after 7 days of inactivity)
+    setInterval(async () => {
+      try {
+        const { pool } = require('./lib/db');
+        await pool.query('SELECT 1');
+        logger.info('Supabase keep-alive ping');
+      } catch (err) {
+        logger.error({ err }, 'Supabase keep-alive ping failed');
+      }
+    }, 6 * 60 * 60 * 1000);
   })
   .catch((err) => {
     logger.fatal({ err }, 'Failed to initialize database — exiting');
