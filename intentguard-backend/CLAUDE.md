@@ -4,80 +4,69 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-IntentGuard prevents the #1 DLP blindspot: attachments that don't match what users say they are. This backend performs three-axis verification — **Intent** (what user claims) vs **Content** (what's actually inside) vs **Context** (channel/destination) — to catch mis-sends before they leak. Slack-first, Node.js/Express 5, OpenAI GPT-4o vision, CommonJS. No tests or linting configured. Early stage.
+IntentGuard backend — Node.js/Express 5, CommonJS. Three-axis DLP verification (Intent vs Content vs Context) for Slack file attachments. OpenAI GPT-4o-mini for AI analysis, PostgreSQL 17 for persistence. No linting configured.
 
 ## Commands
 
 ```bash
 npm start        # node server.js
-npm run dev      # node --watch (auto-restarts on server.js, .env, routes/, or lib/ changes)
+npm run dev      # node --watch --watch-preserve-output server.js
 npm install      # install dependencies
+npm test         # run all tests (Node.js built-in test runner, no DB required)
+npm run test:watch  # run tests in watch mode
 ```
 
-No test runner or linter is configured. Start Postgres first: `docker compose up -d` from the repo root (Postgres 17, credentials: `intentguard`/`intentguard`/`intentguard`).
+Start Postgres first: `docker compose up -d` from the repo root.
 
-## Architecture
+## Module Reference
 
-`server.js` is a thin entry point: loads env vars, mounts route modules, serves a health check (`GET /`), and starts the server. Gates `app.listen()` behind `initDb()` — server won't start if DB is unreachable.
+### Entry Point
 
-**Adding a new integration:** create `routes/<provider>.js` exporting an Express Router, mount it in `server.js` with `app.use('/<provider>', router)`.
+- **`server.js`** — Mounts routers, serves health check, gates startup behind `initDb()`. Runs scheduled jobs per-workspace via `forEachWorkspace()`: retention cleanup (6h), monthly rollup (6h), auto-join channels (5m). Global jobs: resend context cleanup (30m), Supabase keep-alive (6h). Public routes: `/slack`, `/slack/oauth`, `/admin/login`. Protected routes (behind `requireAuth`): `/admin/*`, `/features`, `/`.
 
-### Request Flow (Slack webhook → response)
+### Routes
 
-1. `POST /slack/events` receives raw body via `express.raw()` — required because Slack signature verification needs the raw request body string, not parsed JSON
-2. HMAC-SHA256 verification with `crypto.timingSafeEqual()` + 5-minute timestamp window (replay attack protection)
-3. `url_verification` handled synchronously (Slack handshake)
-4. All other events: **ack immediately with `200`** (Slack has a 3-second timeout), then process async
-5. Route-level guards skip thread replies (`thread_ts !== ts`) and bot messages (`bot_id`/`bot_profile`)
-6. `analyzeMessage(event)` runs risk analysis → `saveEvaluation()` fires-and-forgets to DB → `reactToAssessment()` posts reactions/warnings
+- **`routes/slack.js`** — `POST /slack/events`: raw body parsing, HMAC-SHA256 verification, immediate 200 ack, async processing. Resolves workspace from `payload.team_id` via DB lookup (falls back to `'default'` if env vars set). Guards: thread replies, bots, disabled analysis, channel monitoring/exclusion. Handles DM re-send replies. Contains `reactToAssessment()` (mismatch → delete files + DM; match → checkmark; uncertain → question mark). All Slack API calls use per-workspace clients.
+- **`routes/slack-oauth.js`** — Slack OAuth V2 flow. `GET /authorize`: CSRF state + redirect to Slack. `GET /callback`: exchanges code for tokens via `oauth.v2.access`, stores workspace in DB, seeds default settings, invalidates client cache. `GET /install`: public "Add to Slack" landing page. State stored in-memory Map with 10-min TTL.
+- **`routes/admin.js`** — `GET /admin/evaluations`: paginated HTML table (25/page, excludes skipped). `GET/POST /admin/settings`: global analysis toggle + retention days.
+- **`routes/admin-login.js`** — `GET/POST /admin/login`, `GET /admin/login/logout`. Cookie-based session auth.
+- **`routes/admin-stats.js`** — `GET /admin/stats`: analytics dashboard with live current-month queries + last-month comparison.
+- **`routes/admin-integrations.js`** — `GET /admin/integrations`: integration hub page. Shows DB-backed connected workspace count. "+ Add Workspace" card when `SLACK_CLIENT_ID` is set.
+- **`routes/admin-integrations-slack.js`** — `GET/POST /admin/integrations/slack`: channel monitoring, alert thresholds, strict audience blocking, excluded channels. Shows connected workspaces list from DB. Handles `?installed=1` success toast and `?error=` OAuth error toast.
+- **`routes/features.js`** — `GET /features`: static product features marketing page.
 
-### Mismatch Response Sequence
+### Core Libraries
 
-On mismatch, three actions in order:
-1. Add `:warning:` emoji reaction
-2. **Delete the original message** from the channel; if deletion fails (permissions), fall back to posting a threaded warning
-3. **DM the user** with full reasoning and file details
+- **`lib/risk-engine.js`** — `analyzeMessage(event, workspaceId)`: orchestrates pre-scan → text extraction → OpenAI call. Guards: SKIP_SUBTYPES, no text, URL-only messages, no files, no API key. Fetches channel context (name, type, privacy, members, external). Builds multipart OpenAI messages with vision images (base64, max 5), extracted text, and metadata-only fallbacks. GPT-4o-mini, temperature 0.2, 512 max tokens, JSON response format. Single retry on 429/5xx. Returns `{ match, confidence, reasoning, contextRisk, mismatchType, intentLabel, riskSummary, filesAnalyzed, error, analysisMethod, preScanFindings }`.
 
-Match → `:white_check_mark:` emoji. Uncertain → `:grey_question:` emoji. Skipped → no reaction.
+- **`lib/pre-scan.js`** — `preScan(messageText, extractedFiles, allFiles)`: regex/heuristic detection before LLM. Detects: credit cards (Luhn-validated), SSNs, UK NINOs, API keys (OpenAI/AWS/GitHub/Slack/GitLab/npm/Stripe/SendGrid/Heroku), private keys (PEM), passwords, .env content, bulk emails (10+), bulk phones (10+), high-entropy tokens (Shannon entropy >= 4.5), risky filenames. Severity: critical/high/medium. Verdicts: `mismatch` (critical findings → skip LLM), `signals_only` (pass hints to LLM), `clean`.
 
-### Risk Engine (`lib/risk-engine.js`)
+- **`lib/extractors/index.js`** — Registry mapping mimetypes to lazy-loaded extractors. 3s timeout per file, 20MB size limit, 3000 char truncation. `canExtract(file)` and `extractText(buffer, mimetype)`.
+  - `pdf.js` — pdf-parse
+  - `docx.js` — mammoth (extracts raw text)
+  - `xlsx.js` — xlsx (first 50 rows, all sheets)
+  - `pptx.js` — officeparser
+  - `csv.js` — csv-parse (first 50 rows)
+  - `plaintext.js` — direct Buffer.toString (text/plain, markdown, JSON, XML, YAML, HTML)
 
-- `analyzeMessage(event)` — guards: skips if subtype in `SKIP_SUBTYPES`, no text, no files, or `OPENAI_API_KEY` unset
-- Files categorized as images (sent to GPT-4o vision as base64) or non-images (metadata-only: filename, mimetype, size)
-- `Promise.allSettled()` for parallel image downloads — one failure doesn't block others, falls back to metadata-only
-- OpenAI GPT-4o: temperature 0.2, `response_format: { type: 'json_object' }`, 1024 max tokens
-- Returns: `{ match, confidence, reasoning, filesAnalyzed, error }` where match is `match`|`mismatch`|`uncertain`|`skipped`
-- **Fail-open design**: any error returns `uncertain`, never disrupts the user
+- **`lib/db.js`** — `pg.Pool` singleton (max 10). `initDb()` creates/migrates all tables idempotently (evaluations, settings, workspaces, file_analyses, detection_events, monthly_summaries, resend_contexts). Workspaces table includes OAuth columns: `bot_token`, `user_token`, `bot_user_id`, `team_name`, `installed_at`. Seeds default settings. Handles legacy privacy migration (drops message_text/reasoning columns, backfills structured fields). Exports: `pool`, `initDb`, `getSetting`, `setSetting`, `runRetentionCleanup`, `saveResendContext`, `getResendContext`, `deleteResendContext`, `cleanupExpiredResendContexts`, `getWorkspace`, `upsertWorkspace`, `getAllActiveWorkspaces`, `seedWorkspaceSettings`. Production uses `POSTGRES_URL` with SSL; dev uses `DATABASE_URL`.
 
-### Other Modules
+- **`lib/evaluation-store.js`** — `saveEvaluation(event, assessment, platform, workspaceId)`: hashes message text synchronously (safe for fire-and-forget), strips sensitive fields from files, inserts evaluation + per-file `file_analyses` rows + `detection_events`. Returns `evaluationId`. `recordEvent(evaluationId, workspaceId, eventType, eventData)`: immutable event log.
 
-- **`lib/db.js`** — `pg.Pool` singleton (max 10 connections) + `initDb()` creates `evaluations` table + indexes idempotently
-- **`lib/evaluation-store.js`** — `saveEvaluation(event, assessment)` — parameterized INSERT, fire-and-forget (never blocks Slack flow)
-- **`lib/slack-client.js`** — Shared `@slack/web-api` WebClient singleton
-- **`lib/logger.js`** — Pino logger with dual transport: daily file rotation (`logs/`, 14-day retention, 20MB max) + pretty console
-- **`routes/admin.js`** — `GET /admin/evaluations?page=N` — paginated HTML dashboard (excludes skipped, 25 per page, dark theme)
+- **`lib/rollup.js`** — `rollupMonthlySummary(workspaceId)`: aggregates current month data into `monthly_summaries` via upsert. Tracks: scans, files, verdicts, detection methods, estimated cost savings, top mismatch types/channels/users.
+
+- **`lib/auth.js`** — `requireAuth` middleware: validates `ig_session` cookie (HMAC of ADMIN_SECRET). Skips auth entirely if `ADMIN_SECRET` unset (local dev). `validateLogin(secret)` for login form.
+
+- **`lib/slack-client.js`** — Per-workspace Slack client factory with `Map` caching. `getSlackClient(workspaceId)`: returns `WebClient` for bot token (DB first, env var fallback for `'default'`). `getSlackUserClient(workspaceId)`: same for user token, returns `null` if none. `getBotToken(workspaceId)`: raw token string for `fetch()` calls. `invalidateClientCache(workspaceId)`: clears cache after OAuth re-auth. Lazy `require('./db')` avoids circular dependency.
+
+- **`lib/logger.js`** — Pino logger with dual transport: daily file rotation (logs/, 14-day, 20MB) + pretty console. Redacts: event.text, reasoning, file URLs, file findings.
+
+- **`lib/nav.js`** — `buildNav(activePage)`: shared HTML nav bar for all admin pages.
 
 ## Key Patterns
 
-- **Each router owns its own body parsing middleware** — Slack needs `express.raw()`, other routes may need different parsers
-- **Fire-and-forget persistence** — `saveEvaluation()` called without `await`; errors logged but never block Slack response
-- **Singletons via module caching** — `db.js`, `slack-client.js`, `logger.js` export singleton instances; `risk-engine.js` lazily creates OpenAI client
-- **Graceful degradation everywhere** — missing API keys skip analysis, file download failures fall back to metadata, message deletion failures fall back to thread warnings, DB errors log and continue
-
-## Environment Variables (`.env`)
-
-| Variable | Purpose |
-|---|---|
-| `SLACK_SIGNING_SECRET` | HMAC-SHA256 signature verification (skipped if unset) |
-| `SLACK_BOT_TOKEN` | Used by `@slack/web-api` for API calls and file downloads |
-| `OPENAI_API_KEY` | OpenAI API key for GPT-4o vision analysis (risk engine skips if unset) |
-| `DATABASE_URL` | PostgreSQL connection string (required — server won't start without it) |
-| `PORT` | Server port (default: 3000) |
-
-## Development Notes
-
-- Local development uses ngrok (configured in `ngrok.yml`) to tunnel webhooks from Slack
-- Slack signature verification is done manually with Node.js `crypto` — no dependency on the deprecated `@slack/events-api`
-- `@slack/web-api` v7 is used; requires Node.js >= 18
-- Express 5 (not 4) — be aware of breaking changes (e.g., `req.query` is a getter, path-to-regexp v8)
-- Zero content retention: only metadata (match result, confidence, reasoning) is persisted — file contents are never stored
+- **Each router owns its own body parsing** — Slack needs `express.raw()`, admin forms use `express.urlencoded()`
+- **Singletons via module caching** — db, logger export instances; risk-engine lazily creates OpenAI client; slack-client uses per-workspace factory with Map caching
+- **Graceful degradation everywhere** — missing keys skip analysis, download failures fall back to metadata, deletion failures fall back to DM-only, DB errors log and continue
+- **In-memory cleanup** — After processing, `event.text` and file URLs are nulled to prevent accidental retention
+- **Settings are `slack.*` namespaced** — Platform-specific settings use prefixed keys (e.g., `slack.monitored_channels`) for future multi-platform support

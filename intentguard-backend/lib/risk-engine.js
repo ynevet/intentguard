@@ -1,6 +1,6 @@
 const OpenAI = require('openai');
 const logger = require('./logger');
-const { slackClient } = require('./slack-client');
+const { getSlackClient, getBotToken } = require('./slack-client');
 const { getSetting } = require('./db');
 const { extractText, canExtract } = require('./extractors');
 const { preScan } = require('./pre-scan');
@@ -22,9 +22,11 @@ const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20 MB
 // Max images to send via vision (each costs 85 tokens at detail:low)
 const MAX_VISION_IMAGES = 5;
 
-async function getChannelContext(channel) {
+async function getChannelContext(channel, workspaceId = 'default') {
   try {
-    const info = await slackClient.conversations.info({ channel });
+    const client = await getSlackClient(workspaceId);
+    if (!client) throw new Error('No Slack client available');
+    const info = await client.conversations.info({ channel });
     const ch = info.channel;
     const context = {
       name: ch.name || ch.id,
@@ -169,12 +171,15 @@ async function callOpenAIWithRetry(messages, maxRetries = 1) {
   }
 }
 
-async function downloadSlackFileAsBuffer(file) {
+async function downloadSlackFileAsBuffer(file, workspaceId = 'default') {
   const url = file.url_private_download || file.url_private;
   if (!url) return null;
 
+  const token = await getBotToken(workspaceId);
+  if (!token) throw new Error('No bot token available for file download');
+
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}` },
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   if (!response.ok) {
@@ -184,8 +189,8 @@ async function downloadSlackFileAsBuffer(file) {
   return Buffer.from(await response.arrayBuffer());
 }
 
-async function downloadSlackFile(file) {
-  const buffer = await downloadSlackFileAsBuffer(file);
+async function downloadSlackFile(file, workspaceId = 'default') {
+  const buffer = await downloadSlackFileAsBuffer(file, workspaceId);
   if (!buffer) return null;
   return buffer.toString('base64');
 }
@@ -250,7 +255,7 @@ function buildContextSection(channelCtx) {
   return lines.join('\n');
 }
 
-async function buildOpenAIMessages(text, files, channelCtx, strictAudienceBlocking = false, preScanHints = null) {
+async function buildOpenAIMessages(text, files, channelCtx, strictAudienceBlocking = false, preScanHints = null, workspaceId = 'default') {
   const { images, extractable, nonImages } = categorizeFiles(files);
 
   // Cap vision images — extras analyzed as metadata-only (saves 85 tokens + download per image)
@@ -264,7 +269,7 @@ async function buildOpenAIMessages(text, files, channelCtx, strictAudienceBlocki
   const downloadResults = await Promise.allSettled(
     visionImages.map(async (file) => {
       try {
-        const base64 = await downloadSlackFile(file);
+        const base64 = await downloadSlackFile(file, workspaceId);
         return { file, base64, method: 'vision' };
       } catch (err) {
         logger.warn({ file: file.name, err: err.message }, 'Image download failed, falling back to metadata-only');
@@ -282,7 +287,7 @@ async function buildOpenAIMessages(text, files, channelCtx, strictAudienceBlocki
   const extractResults = await Promise.allSettled(
     extractable.map(async (file) => {
       try {
-        const buffer = await downloadSlackFileAsBuffer(file);
+        const buffer = await downloadSlackFileAsBuffer(file, workspaceId);
         if (!buffer) return { file, text: null, method: 'metadata-only' };
         const extractedText = await extractText(buffer, file.mimetype);
         return { file, text: extractedText, method: extractedText ? 'text-extraction' : 'metadata-only' };
@@ -448,14 +453,14 @@ async function analyzeMessage(event, workspaceId = 'default') {
   try {
     // Fetch channel context and audience blocking setting in parallel
     const [channelCtx, strictAudienceSetting] = await Promise.all([
-      getChannelContext(event.channel),
+      getChannelContext(event.channel, workspaceId),
       getSetting('slack.strict_audience_blocking', workspaceId),
     ]);
     const strictAudienceBlocking = (strictAudienceSetting || 'false') === 'true';
     logger.info({ channelCtx, strictAudienceBlocking }, 'Risk engine: channel context fetched');
 
     // Build messages (downloads + extracts files in parallel)
-    const { messages, filesMeta, extractedFiles } = await buildOpenAIMessages(event.text, event.files, channelCtx, strictAudienceBlocking);
+    const { messages, filesMeta, extractedFiles } = await buildOpenAIMessages(event.text, event.files, channelCtx, strictAudienceBlocking, null, workspaceId);
 
     // ── Pre-scan: regex/heuristic detection before LLM ──
     const extractedForPreScan = (extractedFiles || [])

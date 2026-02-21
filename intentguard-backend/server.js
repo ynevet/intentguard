@@ -3,10 +3,11 @@ const path = require('path');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const logger = require('./lib/logger');
-const { initDb, runRetentionCleanup, cleanupExpiredResendContexts } = require('./lib/db');
+const { initDb, runRetentionCleanup, cleanupExpiredResendContexts, getAllActiveWorkspaces } = require('./lib/db');
 const { buildNav } = require('./lib/nav');
 const { requireAuth } = require('./lib/auth');
 const slackRouter = require('./routes/slack');
+const slackOAuthRouter = require('./routes/slack-oauth');
 const adminRouter = require('./routes/admin');
 const adminLoginRouter = require('./routes/admin-login');
 const featuresRouter = require('./routes/features');
@@ -25,6 +26,7 @@ app.use(cookieParser());
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Public routes (no auth)
+app.use('/slack/oauth', slackOAuthRouter);
 app.use('/slack', slackRouter);
 app.use('/admin/login', adminLoginRouter);
 
@@ -140,28 +142,44 @@ initDb()
       logger.info(`Server running on http://localhost:${PORT}`);
     });
 
+    // Helper: run a per-workspace job across all active workspaces
+    async function forEachWorkspace(jobName, fn) {
+      try {
+        const workspaces = await getAllActiveWorkspaces();
+        for (const ws of workspaces) {
+          try {
+            await fn(ws.id);
+          } catch (err) {
+            logger.error({ err, workspaceId: ws.id }, `${jobName} failed for workspace`);
+          }
+        }
+      } catch (err) {
+        logger.error({ err }, `${jobName} failed to list workspaces`);
+      }
+    }
+
     // Run retention cleanup on startup, then every 6 hours
-    runRetentionCleanup().catch((err) => logger.error({ err }, 'Retention cleanup failed'));
+    forEachWorkspace('Retention cleanup', runRetentionCleanup);
     setInterval(() => {
-      runRetentionCleanup().catch((err) => logger.error({ err }, 'Retention cleanup failed'));
+      forEachWorkspace('Retention cleanup', runRetentionCleanup);
     }, 6 * 60 * 60 * 1000);
 
     // Run monthly rollup on startup, then every 6 hours
-    rollupMonthlySummary().catch((err) => logger.error({ err }, 'Monthly rollup failed'));
+    forEachWorkspace('Monthly rollup', rollupMonthlySummary);
     setInterval(() => {
-      rollupMonthlySummary().catch((err) => logger.error({ err }, 'Monthly rollup failed'));
+      forEachWorkspace('Monthly rollup', rollupMonthlySummary);
     }, 6 * 60 * 60 * 1000);
 
-    // Cleanup expired resend contexts on startup, then every 30 minutes
+    // Cleanup expired resend contexts on startup, then every 30 minutes (global, not per-workspace)
     cleanupExpiredResendContexts().catch((err) => logger.error({ err }, 'Resend context cleanup failed'));
     setInterval(() => {
       cleanupExpiredResendContexts().catch((err) => logger.error({ err }, 'Resend context cleanup failed'));
     }, 30 * 60 * 1000);
 
     // Auto-join all public Slack channels on startup, then every 5 minutes
-    joinAllPublicChannels().catch((err) => logger.error({ err }, 'Auto-join channels sweep failed'));
+    forEachWorkspace('Auto-join channels', joinAllPublicChannels);
     setInterval(() => {
-      joinAllPublicChannels().catch((err) => logger.error({ err }, 'Auto-join channels sweep failed'));
+      forEachWorkspace('Auto-join channels', joinAllPublicChannels);
     }, 5 * 60 * 1000);
 
     // Keep Supabase free-tier project alive (pauses after 7 days of inactivity)

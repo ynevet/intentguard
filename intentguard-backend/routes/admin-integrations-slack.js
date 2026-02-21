@@ -1,5 +1,5 @@
 const express = require('express');
-const { getSetting, setSetting } = require('../lib/db');
+const { getSetting, setSetting, getAllActiveWorkspaces } = require('../lib/db');
 const { buildNav } = require('../lib/nav');
 const logger = require('../lib/logger');
 
@@ -17,6 +17,14 @@ function escapeHtml(str) {
 router.get('/', async (req, res) => {
   try {
     const saved = req.query.saved === '1';
+    const installed = req.query.installed === '1';
+    const oauthError = req.query.error || '';
+
+    // Workspace status from DB
+    const workspaces = await getAllActiveWorkspaces();
+    const slackWorkspaces = workspaces.filter((ws) => ws.platform === 'slack' && ws.bot_token);
+    const hasEnvToken = !!process.env.SLACK_BOT_TOKEN;
+    const hasOAuth = !!process.env.SLACK_CLIENT_ID;
     const monitoredChannels = await getSetting('slack.monitored_channels') || '';
     const excludedChannels = await getSetting('slack.excluded_channels') || '';
     const warningThreshold = await getSetting('slack.warning_threshold') || '50';
@@ -64,6 +72,8 @@ router.get('/', async (req, res) => {
     <p class="meta">Configure how IntentGuard monitors and responds in your Slack workspace.</p>
 
     ${saved ? '<div class="toast">Slack settings saved</div>' : ''}
+    ${installed ? '<div class="toast">Workspace connected successfully!</div>' : ''}
+    ${oauthError ? `<div class="toast" style="background:#da3633;">OAuth error: ${escapeHtml(oauthError)}</div>` : ''}
 
     <form class="settings" method="POST" action="/admin/integrations/slack">
       <h2>Channel Monitoring</h2>
@@ -106,10 +116,19 @@ router.get('/', async (req, res) => {
     </form>
 
     <div class="info-card">
+      <h3>Connected Workspaces</h3>
+      ${slackWorkspaces.length > 0
+        ? slackWorkspaces.map((ws) => `<p><strong>${escapeHtml(ws.team_name || ws.name)}</strong> <code>${escapeHtml(ws.id)}</code>${ws.installed_at ? ` &mdash; installed ${new Date(ws.installed_at).toLocaleDateString()}` : ''}</p>`).join('\n      ')
+        : ''}
+      ${hasEnvToken ? '<p><strong>Default Workspace</strong> <code>env var</code> &mdash; configured via SLACK_BOT_TOKEN</p>' : ''}
+      ${!hasEnvToken && slackWorkspaces.length === 0 ? '<p style="color:#8b949e;">No workspaces connected. Install via OAuth or set SLACK_BOT_TOKEN.</p>' : ''}
+      ${hasOAuth ? '<p style="margin-top:12px;"><a href="/slack/oauth/install" style="color:#58a6ff;">+ Add another workspace</a></p>' : ''}
+    </div>
+
+    <div class="info-card" style="margin-top:16px;">
       <h3>About This Integration</h3>
       <p>IntentGuard monitors file attachments shared in your Slack workspace and verifies that file content matches the sender's stated intent using AI-powered three-axis analysis.</p>
       <p>Webhook endpoint: <code>POST /slack/events</code></p>
-      <p>Bot status: <code>${process.env.SLACK_BOT_TOKEN ? 'Connected' : 'Not configured'}</code></p>
     </div>
   </div>
 </body>

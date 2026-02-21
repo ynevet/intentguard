@@ -1,4 +1,4 @@
-const { slackClient } = require('./slack-client');
+const { getSlackClient } = require('./slack-client');
 const { getSetting } = require('./db');
 const logger = require('./logger');
 
@@ -25,7 +25,12 @@ async function joinChannel(channelId, workspaceId = 'default') {
   }
 
   try {
-    await slackClient.conversations.join({ channel: channelId });
+    const client = await getSlackClient(workspaceId);
+    if (!client) {
+      logger.warn({ channelId, workspaceId }, 'No Slack client available, skipping join');
+      return false;
+    }
+    await client.conversations.join({ channel: channelId });
     logger.info({ channelId }, 'Auto-joined channel');
     return true;
   } catch (err) {
@@ -44,9 +49,15 @@ async function joinAllPublicChannels(workspaceId = 'default') {
   const counts = { joined: 0, skipped: 0, failed: 0, alreadyMember: 0 };
   let cursor;
 
+  const client = await getSlackClient(workspaceId);
+  if (!client) {
+    logger.warn({ workspaceId }, 'No Slack client available, skipping auto-join sweep');
+    return counts;
+  }
+
   try {
     do {
-      const result = await slackClient.conversations.list({
+      const result = await client.conversations.list({
         types: 'public_channel',
         exclude_archived: true,
         limit: 200,
@@ -63,7 +74,7 @@ async function joinAllPublicChannels(workspaceId = 'default') {
           continue;
         }
         try {
-          await slackClient.conversations.join({ channel: channel.id });
+          await client.conversations.join({ channel: channel.id });
           counts.joined++;
           logger.info({ channelId: channel.id, channelName: channel.name }, 'Auto-joined channel');
         } catch (joinErr) {

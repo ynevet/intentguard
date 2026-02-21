@@ -1,11 +1,17 @@
 const express = require('express');
 const { buildNav } = require('../lib/nav');
+const { getAllActiveWorkspaces } = require('../lib/db');
 
 const router = express.Router();
 
-router.get('/', (req, res) => {
-  const slackConfigured = !!process.env.SLACK_BOT_TOKEN;
-  const slackStatus = slackConfigured ? 'Active' : 'Not configured';
+router.get('/', async (req, res) => {
+  const workspaces = await getAllActiveWorkspaces();
+  const slackWorkspaces = workspaces.filter((ws) => ws.platform === 'slack');
+  const hasEnvToken = !!process.env.SLACK_BOT_TOKEN;
+  const hasDbTokens = slackWorkspaces.some((ws) => ws.bot_token);
+  const slackConfigured = hasEnvToken || hasDbTokens;
+  const connectedCount = slackWorkspaces.filter((ws) => ws.bot_token).length + (hasEnvToken && !hasDbTokens ? 1 : 0);
+  const slackStatus = slackConfigured ? `Active (${connectedCount} workspace${connectedCount !== 1 ? 's' : ''})` : 'Not configured';
   const slackBadgeColor = slackConfigured ? '#2ea043' : '#768390';
 
   res.send(`<!DOCTYPE html>
@@ -71,6 +77,7 @@ router.get('/', (req, res) => {
         <p>Channel monitoring, alert thresholds, and DM notification settings for your Slack workspace.</p>
         <span class="status-badge" style="background:${slackBadgeColor};">${slackStatus}</span>
       </a>
+      ${process.env.SLACK_CLIENT_ID ? '<a class="integration-card" href="/slack/oauth/install" style="text-align:center;border-style:dashed;"><div class="icon">+</div><h2>Add Workspace</h2><p>Install IntentGuard in another Slack workspace via OAuth.</p></a>' : ''}
 
       <div class="coming-soon">
         <div class="header">

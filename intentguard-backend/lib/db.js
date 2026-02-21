@@ -69,6 +69,12 @@ async function initDb() {
         status      TEXT NOT NULL DEFAULT 'active',
         created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
       );
+      ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS bot_token TEXT;
+      ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS user_token TEXT;
+      ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS bot_user_id TEXT;
+      ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS team_name TEXT;
+      ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS installed_at TIMESTAMPTZ;
+
       INSERT INTO workspaces (id, name, platform, status)
         VALUES ('default', 'Default Workspace', 'slack', 'active')
         ON CONFLICT (id) DO NOTHING;
@@ -357,7 +363,56 @@ async function cleanupExpiredResendContexts() {
   }
 }
 
+// ── Workspace helpers ─────────────────────────────────────────────────
+
+async function getWorkspace(workspaceId) {
+  const { rows } = await pool.query('SELECT * FROM workspaces WHERE id = $1', [workspaceId]);
+  return rows[0] || null;
+}
+
+async function upsertWorkspace({ id, name, platform = 'slack', status = 'active', botToken, userToken, botUserId, teamName }) {
+  await pool.query(
+    `INSERT INTO workspaces (id, name, platform, status, bot_token, user_token, bot_user_id, team_name, installed_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+     ON CONFLICT (id) DO UPDATE SET
+       name = COALESCE(EXCLUDED.name, workspaces.name),
+       platform = COALESCE(EXCLUDED.platform, workspaces.platform),
+       status = COALESCE(EXCLUDED.status, workspaces.status),
+       bot_token = COALESCE(EXCLUDED.bot_token, workspaces.bot_token),
+       user_token = COALESCE(EXCLUDED.user_token, workspaces.user_token),
+       bot_user_id = COALESCE(EXCLUDED.bot_user_id, workspaces.bot_user_id),
+       team_name = COALESCE(EXCLUDED.team_name, workspaces.team_name),
+       installed_at = now()`,
+    [id, name, platform, status, botToken || null, userToken || null, botUserId || null, teamName || null],
+  );
+}
+
+async function getAllActiveWorkspaces() {
+  const { rows } = await pool.query("SELECT * FROM workspaces WHERE status = 'active'");
+  return rows;
+}
+
+async function seedWorkspaceSettings(workspaceId) {
+  const defaults = [
+    ['analysis_enabled', 'true'],
+    ['retention_days', '90'],
+    ['slack.monitored_channels', ''],
+    ['slack.warning_threshold', '50'],
+    ['slack.delete_threshold', '70'],
+    ['slack.strict_audience_blocking', 'false'],
+    ['slack.auto_join_channels', 'true'],
+    ['slack.excluded_channels', ''],
+  ];
+  for (const [key, value] of defaults) {
+    await pool.query(
+      'INSERT INTO settings (workspace_id, key, value) VALUES ($1, $2, $3) ON CONFLICT (workspace_id, key) DO NOTHING',
+      [workspaceId, key, value],
+    );
+  }
+}
+
 module.exports = {
   pool, initDb, getSetting, setSetting, runRetentionCleanup,
   saveResendContext, getResendContext, deleteResendContext, cleanupExpiredResendContexts,
+  getWorkspace, upsertWorkspace, getAllActiveWorkspaces, seedWorkspaceSettings,
 };

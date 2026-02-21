@@ -1,15 +1,15 @@
 const crypto = require('crypto');
 const express = require('express');
 const logger = require('../lib/logger');
-const { slackClient, slackUserClient } = require('../lib/slack-client');
+const { getSlackClient, getSlackUserClient, getBotToken } = require('../lib/slack-client');
 const { analyzeMessage } = require('../lib/risk-engine');
 const { saveEvaluation, recordEvent } = require('../lib/evaluation-store');
-const { getSetting, saveResendContext, getResendContext, deleteResendContext } = require('../lib/db');
+const { getSetting, saveResendContext, getResendContext, deleteResendContext, getWorkspace } = require('../lib/db');
 const { joinChannel } = require('../lib/channel-join');
 
 const router = express.Router();
 
-async function handleResendReply(event) {
+async function handleResendReply(event, workspaceId = 'default') {
   const context = await getResendContext(event.channel, event.thread_ts);
 
   if (!context) {
@@ -18,7 +18,11 @@ async function handleResendReply(event) {
   }
 
   const originalChannel = context.original_channel;
+  const resolvedWorkspaceId = context.workspace_id || workspaceId;
   logger.info({ user: event.user, originalChannel, fileCount: event.files.length }, 'Re-send: processing');
+
+  const token = await getBotToken(resolvedWorkspaceId);
+  const client = await getSlackClient(resolvedWorkspaceId);
 
   const uploaded = [];
   for (const file of event.files) {
@@ -29,14 +33,18 @@ async function handleResendReply(event) {
         continue;
       }
 
+      if (!token) throw new Error('No bot token available for file download');
+
       const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error(`Download failed: ${response.status}`);
 
       const buffer = Buffer.from(await response.arrayBuffer());
 
-      await slackClient.files.uploadV2({
+      if (!client) throw new Error('No Slack client available for file upload');
+
+      await client.files.uploadV2({
         channel_id: originalChannel,
         file: buffer,
         filename: file.name,
@@ -46,7 +54,7 @@ async function handleResendReply(event) {
       uploaded.push(file.name);
       logger.info({ fileName: file.name, originalChannel, user: event.user }, 'Re-send: file uploaded');
       // Track re-send action (evaluationId not available here — record without it)
-      recordEvent(null, 'default', 'user_resent', { user: event.user, fileName: file.name, originalChannel });
+      recordEvent(null, resolvedWorkspaceId, 'user_resent', { user: event.user, fileName: file.name, originalChannel });
     } catch (fileErr) {
       logger.error({ err: fileErr, fileName: file.name }, 'Re-send: file upload failed');
     }
@@ -54,14 +62,16 @@ async function handleResendReply(event) {
 
   // Confirm in the DM thread
   try {
+    if (!client) throw new Error('No Slack client available');
+
     if (uploaded.length > 0) {
-      await slackClient.chat.postMessage({
+      await client.chat.postMessage({
         channel: event.channel,
         thread_ts: event.thread_ts,
         text: `:white_check_mark: Done! Re-sent ${uploaded.length} file(s) to <#${originalChannel}>:\n${uploaded.map((n) => `- ${n}`).join('\n')}`,
       });
     } else {
-      await slackClient.chat.postMessage({
+      await client.chat.postMessage({
         channel: event.channel,
         thread_ts: event.thread_ts,
         text: `:warning: Could not re-send the file(s). Please try uploading directly to <#${originalChannel}>.`,
@@ -137,17 +147,25 @@ async function reactToAssessment(event, assessment, workspaceId = 'default', eva
     : '';
 
   try {
+    const client = await getSlackClient(workspaceId);
+    const userClient = await getSlackUserClient(workspaceId);
+
+    if (!client) {
+      logger.warn({ workspaceId }, 'No Slack client available for assessment reaction');
+      return;
+    }
+
     if (assessment.match === 'mismatch') {
       // 1. Silently delete the mismatched files from Slack
-      //    Requires the user-token client (SLACK_USER_TOKEN with files:write scope)
+      //    Requires the user-token client (user_token with files:write scope)
       //    because bot tokens can only delete files the bot itself uploaded.
       if (event.files && event.files.length > 0) {
-        if (!slackUserClient) {
-          logger.warn('SLACK_USER_TOKEN not set — cannot delete user-uploaded files');
+        if (!userClient) {
+          logger.warn('No user token configured — cannot delete user-uploaded files');
         } else {
           for (const file of event.files) {
             try {
-              await slackUserClient.files.delete({ file: file.id });
+              await userClient.files.delete({ file: file.id });
               logger.info({ fileId: file.id, fileName: file.name, channel: event.channel, user: event.user }, 'Deleted mismatched file');
               // Track file deletion action
               if (evaluationId) {
@@ -162,8 +180,8 @@ async function reactToAssessment(event, assessment, workspaceId = 'default', eva
 
       // 2. DM the sender with full reasoning (always, even if delete failed)
       try {
-        const dm = await slackClient.conversations.open({ users: event.user });
-        const dmMsg = await slackClient.chat.postMessage({
+        const dm = await client.conversations.open({ users: event.user });
+        const dmMsg = await client.chat.postMessage({
           channel: dm.channel.id,
           text: `:no_entry_sign: *IntentGuard — File removed* (${confidencePct}% confidence)\n\nA file you shared in <#${event.channel}> was removed because it may not match what you described.\n\n*Reasoning:*\n${assessment.reasoning}${contextRiskLabel}\n\n*Files removed:*\n${fileDetails}\n\n:arrow_right: *To re-send,* reply to this message with the correct file attached. I'll post it to <#${event.channel}> for you.`,
         });
@@ -178,13 +196,13 @@ async function reactToAssessment(event, assessment, workspaceId = 'default', eva
         logger.error({ err: dmErr, user: event.user }, 'Failed to send mismatch DM to user');
       }
     } else if (assessment.match === 'match') {
-      await slackClient.reactions.add({
+      await client.reactions.add({
         channel: event.channel,
         name: 'white_check_mark',
         timestamp: event.ts,
       });
     } else if (assessment.match === 'uncertain') {
-      await slackClient.reactions.add({
+      await client.reactions.add({
         channel: event.channel,
         name: 'grey_question',
         timestamp: event.ts,
@@ -198,9 +216,19 @@ async function reactToAssessment(event, assessment, workspaceId = 'default', eva
 
 async function processEvent(payload) {
   const event = payload.event;
-  // For now, all events map to 'default' workspace.
-  // When OAuth multi-workspace is added, resolve from payload.team_id via DB lookup.
-  const workspaceId = 'default';
+
+  // Resolve workspace from team_id: DB lookup first, fall back to 'default' if env vars set
+  let workspaceId = 'default';
+  const teamId = payload.team_id;
+  if (teamId) {
+    const workspace = await getWorkspace(teamId);
+    if (workspace) {
+      workspaceId = teamId;
+    } else if (!process.env.SLACK_BOT_TOKEN) {
+      logger.warn({ teamId }, 'Unknown workspace and no SLACK_BOT_TOKEN env var — ignoring event');
+      return;
+    }
+  }
 
   if (event.type === 'message') {
     // Log message metadata only — no user content, no file URLs
@@ -225,7 +253,7 @@ async function processEvent(payload) {
     // Check for DM re-send replies (user replying with a file to a mismatch DM)
     if (event.thread_ts && event.thread_ts !== event.ts && event.channel_type === 'im') {
       if (event.files && event.files.length > 0 && !event.bot_id) {
-        await handleResendReply(event);
+        await handleResendReply(event, workspaceId);
         return;
       }
     }
