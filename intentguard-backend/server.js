@@ -1,11 +1,14 @@
 require('dotenv').config();
 const path = require('path');
 const express = require('express');
+const cookieParser = require('cookie-parser');
 const logger = require('./lib/logger');
 const { initDb, runRetentionCleanup, cleanupExpiredResendContexts } = require('./lib/db');
 const { buildNav } = require('./lib/nav');
+const { requireAuth } = require('./lib/auth');
 const slackRouter = require('./routes/slack');
 const adminRouter = require('./routes/admin');
+const adminLoginRouter = require('./routes/admin-login');
 const featuresRouter = require('./routes/features');
 const integrationsRouter = require('./routes/admin-integrations');
 const integrationsSlackRouter = require('./routes/admin-integrations-slack');
@@ -15,15 +18,23 @@ const { rollupMonthlySummary } = require('./lib/rollup');
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-app.use('/public', express.static(path.join(__dirname, 'public')));
-app.use('/slack', slackRouter);
-app.use('/admin/integrations/slack', integrationsSlackRouter);
-app.use('/admin/integrations', integrationsRouter);
-app.use('/admin/stats', statsRouter);
-app.use('/admin', adminRouter);
-app.use('/features', featuresRouter);
+// Cookie parser — needed for auth session cookies
+app.use(cookieParser());
 
-app.get('/', (req, res) => {
+app.use('/public', express.static(path.join(__dirname, 'public')));
+
+// Public routes (no auth)
+app.use('/slack', slackRouter);
+app.use('/admin/login', adminLoginRouter);
+
+// Protected routes (require auth)
+app.use('/admin/integrations/slack', requireAuth, integrationsSlackRouter);
+app.use('/admin/integrations', requireAuth, integrationsRouter);
+app.use('/admin/stats', requireAuth, statsRouter);
+app.use('/admin', requireAuth, adminRouter);
+app.use('/features', requireAuth, featuresRouter);
+
+app.get('/', requireAuth, (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>

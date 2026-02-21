@@ -31,6 +31,7 @@ function buildNav(activePage) {
   ${link('/admin/evaluations', 'Evaluations', 'admin')}
   ${link('/admin/stats', 'Stats', 'stats')}
   ${integrationsHtml}
+  <a href="/admin/login/logout" style="color:#8b949e;text-decoration:none;font-size:13px;margin-left:auto;">Logout</a>
 </nav>`;
 }
 
