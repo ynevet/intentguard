@@ -110,6 +110,8 @@ async function initDb() {
         ON CONFLICT (workspace_id, key) DO NOTHING;
       INSERT INTO settings (workspace_id, key, value) VALUES ('default', 'slack.strict_audience_blocking', 'false')
         ON CONFLICT (workspace_id, key) DO NOTHING;
+      INSERT INTO settings (workspace_id, key, value) VALUES ('default', 'slack.auto_join_channels', 'true')
+        ON CONFLICT (workspace_id, key) DO NOTHING;
     `);
 
     // ── Settings key rename migration: un-namespaced → slack.* prefixed ──

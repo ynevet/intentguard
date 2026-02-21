@@ -5,6 +5,7 @@ const { slackClient, slackUserClient } = require('../lib/slack-client');
 const { analyzeMessage } = require('../lib/risk-engine');
 const { saveEvaluation, recordEvent } = require('../lib/evaluation-store');
 const { getSetting, saveResendContext, getResendContext, deleteResendContext } = require('../lib/db');
+const { joinChannel } = require('../lib/channel-join');
 
 const router = express.Router();
 
@@ -288,6 +289,14 @@ async function processEvent(payload) {
         f.url_private_download = null;
         f.permalink = null;
       }
+    }
+  } else if (event.type === 'channel_created') {
+    const channelId = event.channel?.id;
+    if (channelId) {
+      logger.info({ channelId, channelName: event.channel.name }, 'New channel created, attempting auto-join');
+      joinChannel(channelId, workspaceId).catch((err) => {
+        logger.error({ err, channelId }, 'Auto-join on channel_created failed');
+      });
     }
   } else {
     logger.info({

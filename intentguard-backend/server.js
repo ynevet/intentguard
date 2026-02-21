@@ -14,6 +14,7 @@ const integrationsRouter = require('./routes/admin-integrations');
 const integrationsSlackRouter = require('./routes/admin-integrations-slack');
 const statsRouter = require('./routes/admin-stats');
 const { rollupMonthlySummary } = require('./lib/rollup');
+const { joinAllPublicChannels } = require('./lib/channel-join');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -156,6 +157,12 @@ initDb()
     setInterval(() => {
       cleanupExpiredResendContexts().catch((err) => logger.error({ err }, 'Resend context cleanup failed'));
     }, 30 * 60 * 1000);
+
+    // Auto-join all public Slack channels on startup, then every 5 minutes
+    joinAllPublicChannels().catch((err) => logger.error({ err }, 'Auto-join channels sweep failed'));
+    setInterval(() => {
+      joinAllPublicChannels().catch((err) => logger.error({ err }, 'Auto-join channels sweep failed'));
+    }, 5 * 60 * 1000);
 
     // Keep Supabase free-tier project alive (pauses after 7 days of inactivity)
     setInterval(async () => {

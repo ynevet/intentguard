@@ -22,6 +22,7 @@ router.get('/', async (req, res) => {
     const warningThreshold = await getSetting('slack.warning_threshold') || '50';
     const dmThreshold = await getSetting('slack.delete_threshold') || '70';
     const strictAudienceBlocking = (await getSetting('slack.strict_audience_blocking') || 'false') === 'true';
+    const autoJoinChannels = (await getSetting('slack.auto_join_channels') || 'true') === 'true';
 
     res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -75,6 +76,11 @@ router.get('/', async (req, res) => {
         <label for="excluded_channels">Excluded channels</label>
         <input type="text" id="excluded_channels" name="excluded_channels" value="${escapeHtml(excludedChannels)}" placeholder="None">
         <span class="hint">Comma-separated channel IDs to skip scanning (e.g. C0RANDOM,C0MEMES). Takes priority over monitored list.</span>
+      </div>
+      <div class="field">
+        <label for="auto_join_channels">Auto-join public channels</label>
+        <input type="checkbox" id="auto_join_channels" name="auto_join_channels" ${autoJoinChannels ? 'checked' : ''}>
+        <span class="hint">Automatically join all public channels on startup and when new channels are created. Excluded channels are skipped.</span>
       </div>
 
       <h2>Alert Thresholds</h2>
@@ -137,7 +143,10 @@ router.post('/', express.urlencoded({ extended: false }), async (req, res) => {
     const strictAudienceBlocking = req.body.strict_audience_blocking === 'on' ? 'true' : 'false';
     await setSetting('slack.strict_audience_blocking', strictAudienceBlocking);
 
-    logger.info({ monitoredChannels, excludedChannels, warningThreshold, dmThreshold, strictAudienceBlocking }, 'Slack integration settings updated');
+    const autoJoinChannels = req.body.auto_join_channels === 'on' ? 'true' : 'false';
+    await setSetting('slack.auto_join_channels', autoJoinChannels);
+
+    logger.info({ monitoredChannels, excludedChannels, warningThreshold, dmThreshold, strictAudienceBlocking, autoJoinChannels }, 'Slack integration settings updated');
     res.redirect('/admin/integrations/slack?saved=1');
   } catch (err) {
     logger.error({ err }, 'Failed to save Slack integration settings');
