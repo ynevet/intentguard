@@ -309,17 +309,33 @@ router.get('/', (req, res) => {
     </div>
   </div>
 
+  <!-- AI Disclosure -->
+  <div class="section" style="border-top:1px solid #21262d;padding-top:40px;">
+    <h2>AI Transparency</h2>
+    <p class="subtitle">How IntentGuard uses artificial intelligence.</p>
+    <div style="background:#161b22;border:1px solid #21262d;border-radius:12px;padding:28px 24px;">
+      <p style="font-size:14px;color:#c9d1d9;margin-bottom:12px;"><strong>Model:</strong> OpenAI GPT-4o-mini (vision + text). Analysis runs via the OpenAI API on a per-request basis.</p>
+      <p style="font-size:14px;color:#c9d1d9;margin-bottom:12px;"><strong>Data retention:</strong> File contents and message text are processed in memory only and never stored. AI responses are used in real-time and immediately discarded. Only privacy-safe metadata (classification labels, risk scores) is persisted.</p>
+      <p style="font-size:14px;color:#c9d1d9;margin-bottom:12px;"><strong>Training:</strong> IntentGuard does not use Slack data to train any language models. OpenAI's API data is not used for model training per their enterprise privacy policy.</p>
+      <p style="font-size:14px;color:#c9d1d9;margin-bottom:12px;"><strong>Tenancy:</strong> Each workspace's data is isolated. Analysis requests are stateless and contain no data from other workspaces.</p>
+      <p style="font-size:14px;color:#c9d1d9;margin-bottom:0;"><strong>Accuracy:</strong> AI analysis may occasionally produce incorrect results. IntentGuard uses a fail-open design — uncertain results never block user messages. Administrators can review all verdicts in the dashboard and adjust sensitivity thresholds.</p>
+    </div>
+  </div>
+
   <!-- CTA -->
   <div class="cta">
     <h2>Stop data leaks before they happen</h2>
     <p>IntentGuard installs in minutes and starts protecting your workspace immediately.</p>
     <div class="buttons">
-      <a class="btn-primary" href="mailto:contact@intentguard.dev">Get Started</a>
+      <a class="btn-primary" href="/slack/oauth/install">Add to Slack</a>
       <a class="btn-secondary" href="/admin/evaluations">View Dashboard Demo</a>
     </div>
   </div>
 
-  <div class="footer">IntentGuard &mdash; AI-powered Data Loss Prevention for modern teams</div>
+  <div class="footer">
+    IntentGuard &mdash; AI-powered Data Loss Prevention for modern teams
+    <br><span style="font-size:12px;"><a href="/privacy" style="color:#484f58;text-decoration:none;">Privacy Policy</a> &middot; <a href="/support" style="color:#484f58;text-decoration:none;">Support</a></span>
+  </div>
 
 </body>
 </html>`);

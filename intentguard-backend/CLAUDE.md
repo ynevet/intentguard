@@ -22,7 +22,7 @@ Start Postgres first: `docker compose up -d` from the repo root.
 
 ### Entry Point
 
-- **`server.js`** — Mounts routers, serves health check, gates startup behind `initDb()`. Runs scheduled jobs per-workspace via `forEachWorkspace()`: retention cleanup (6h), monthly rollup (6h), auto-join channels (5m). Global jobs: resend context cleanup (30m), Supabase keep-alive (6h). Public routes: `/slack`, `/slack/oauth`, `/admin/login`, `/admin/auth`. Protected routes (behind `requireAuth`): `/admin/*`, `/features`, `/`.
+- **`server.js`** — Mounts routers, serves `GET /health`, gates startup behind `initDb()`. Runs scheduled jobs per-workspace via `forEachWorkspace()`: retention cleanup (6h), monthly rollup (6h), auto-join channels (5m). Global jobs: resend context cleanup (30m), Supabase keep-alive (6h). Public routes: `/slack`, `/slack/oauth`, `/admin/login`, `/admin/auth`, `/features`, `/privacy`, `/support`, `/health`. Protected routes (behind `requireAuth`): `/admin/*`, `/`.
 
 ### Routes
 
@@ -33,7 +33,8 @@ Start Postgres first: `docker compose up -d` from the repo root.
 - **`routes/admin-stats.js`** — `GET /admin/stats`: analytics dashboard with live current-month queries + last-month comparison, tenant-scoped via `req.workspaceId`.
 - **`routes/admin-integrations.js`** — `GET /admin/integrations`: integration hub page. Shows DB-backed connected workspace count. "+ Add Workspace" card when `SLACK_CLIENT_ID` is set.
 - **`routes/admin-integrations-slack.js`** — `GET/POST /admin/integrations/slack`: channel monitoring, alert thresholds, strict audience blocking, excluded channels, all tenant-scoped via `req.workspaceId`. Shows connected workspaces list from DB. Handles `?installed=1` success toast and `?error=` OAuth error toast.
-- **`routes/features.js`** — `GET /features`: static product features marketing page.
+- **`routes/features.js`** — `GET /features`: public product features marketing page with AI transparency disclosure.
+- **`routes/legal.js`** — `GET /privacy`: public privacy policy page. `GET /support`: public support/FAQ page. Required for Slack marketplace.
 
 ### Core Libraries
 

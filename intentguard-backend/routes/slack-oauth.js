@@ -29,6 +29,7 @@ const BOT_SCOPES = [
   'files:read',
   'files:write',
   'im:write',
+  'users:read',
 ].join(',');
 
 const USER_SCOPES = 'files:write';

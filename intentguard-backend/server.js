@@ -14,6 +14,7 @@ const featuresRouter = require('./routes/features');
 const integrationsRouter = require('./routes/admin-integrations');
 const integrationsSlackRouter = require('./routes/admin-integrations-slack');
 const statsRouter = require('./routes/admin-stats');
+const legalRouter = require('./routes/legal');
 const { rollupMonthlySummary } = require('./lib/rollup');
 const { joinAllPublicChannels } = require('./lib/channel-join');
 
@@ -30,13 +31,17 @@ app.use('/slack/oauth', slackOAuthRouter);
 app.use('/slack', slackRouter);
 app.use('/admin/login', adminLoginRouter);
 app.use('/admin/auth', adminAuthRouter);
+app.use('/features', featuresRouter);
+app.use('/', legalRouter);
+
+// Health check
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // Protected routes (require auth)
 app.use('/admin/integrations/slack', requireAuth, integrationsSlackRouter);
 app.use('/admin/integrations', requireAuth, integrationsRouter);
 app.use('/admin/stats', requireAuth, statsRouter);
 app.use('/admin', requireAuth, adminRouter);
-app.use('/features', requireAuth, featuresRouter);
 
 app.get('/', requireAuth, (req, res) => {
   res.send(`<!DOCTYPE html>

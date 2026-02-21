@@ -58,7 +58,10 @@ Server-rendered HTML pages (dark theme, no frontend framework), **tenant-scoped*
 - `/admin/stats` — Analytics: verdicts, detection breakdown, mismatch types, risk channels/users, cost savings
 - `/admin/integrations` — Integration hub (Slack active; Teams/Email coming soon)
 - `/admin/integrations/slack` — Channel monitoring, alert thresholds, strict audience blocking, excluded channels
-- `/features` — Product features marketing page
+- `/features` — Public product features marketing page with AI transparency disclosure
+- `/privacy` — Public privacy policy (required for Slack marketplace)
+- `/support` — Public support/FAQ page (required for Slack marketplace)
+- `/health` — Health check endpoint
 - `/slack/oauth/install` — Public "Add to Slack" landing page
 - `/slack/oauth/authorize` — Initiates OAuth V2 flow with CSRF state
 - `/slack/oauth/callback` — Exchanges code for tokens, stores workspace in DB
