@@ -59,24 +59,24 @@ router.get('/callback', async (req, res) => {
 
   if (oauthError) {
     logger.warn({ oauthError }, 'Slack OAuth denied by user');
-    return res.redirect('/admin/integrations/slack?error=oauth_denied');
+    return res.redirect('/slack/oauth/install?error=oauth_denied');
   }
 
   if (!state || !pendingStates.has(state)) {
     logger.warn('Slack OAuth callback with invalid or expired state');
-    return res.redirect('/admin/integrations/slack?error=invalid_state');
+    return res.redirect('/slack/oauth/install?error=invalid_state');
   }
 
   // Check TTL
   if (Date.now() - pendingStates.get(state) > STATE_TTL_MS) {
     pendingStates.delete(state);
-    return res.redirect('/admin/integrations/slack?error=expired_state');
+    return res.redirect('/slack/oauth/install?error=expired_state');
   }
 
   pendingStates.delete(state);
 
   if (!code) {
-    return res.redirect('/admin/integrations/slack?error=missing_code');
+    return res.redirect('/slack/oauth/install?error=missing_code');
   }
 
   try {
@@ -167,13 +167,23 @@ router.get('/callback', async (req, res) => {
     res.redirect('/admin/login?installed=1');
   } catch (err) {
     logger.error({ err }, 'Slack OAuth callback failed');
-    res.redirect('/admin/integrations/slack?error=oauth_failed');
+    res.redirect('/slack/oauth/install?error=oauth_failed');
   }
 });
+
+const ERROR_MESSAGES = {
+  oauth_denied: 'You cancelled the Slack authorization. Please try again.',
+  invalid_state: 'The install link was invalid or expired. Please try again.',
+  expired_state: 'The install link has expired. Please try again.',
+  missing_code: 'Slack did not return an authorization code. Please try again.',
+  oauth_failed: 'Something went wrong during installation. Please try again.',
+};
 
 router.get('/install', (req, res) => {
   const clientId = process.env.SLACK_CLIENT_ID;
   const configured = !!clientId;
+  const errorCode = req.query.error || '';
+  const errorMsg = ERROR_MESSAGES[errorCode] || '';
 
   res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -187,6 +197,7 @@ router.get('/install', (req, res) => {
     .content { max-width: 520px; margin: 0 auto; padding: 80px 24px; text-align: center; }
     h1 { font-size: 28px; margin-bottom: 12px; }
     .subtitle { color: #8b949e; font-size: 16px; margin-bottom: 40px; }
+    .error-toast { background: #da3633; color: #fff; padding: 10px 16px; border-radius: 6px; font-size: 14px; margin-bottom: 24px; display: inline-block; }
     .install-btn {
       display: inline-block;
       padding: 14px 32px;
@@ -215,6 +226,7 @@ router.get('/install', (req, res) => {
   <div class="content">
     <h1>Add IntentGuard to Slack</h1>
     <p class="subtitle">AI-powered DLP that catches attachments that don't match what users say they are.</p>
+    ${errorMsg ? `<div class="error-toast">${errorMsg}</div><br>` : ''}
     ${configured
       ? '<a class="install-btn" href="/slack/oauth/authorize">Add to Slack</a>'
       : '<div class="not-configured"><p>OAuth is not configured. Set <code>SLACK_CLIENT_ID</code>, <code>SLACK_CLIENT_SECRET</code>, and optionally <code>SLACK_OAUTH_REDIRECT_URI</code> to enable the install flow.</p></div>'
