@@ -103,7 +103,7 @@ router.get('/privacy', (req, res) => {
     <h2>Contact</h2>
     <p>For privacy questions, data requests, or concerns:</p>
     <div class="card">
-      <p>Email: <a href="mailto:privacy@intentify.ai">privacy@intentify.ai</a></p>
+      <p>Email: <a href="mailto:privacy@intentify.tech">privacy@intentify.tech</a></p>
     </div>
   </div>
 </body>
@@ -128,7 +128,7 @@ router.get('/support', (req, res) => {
     <div class="card">
       <h3>Email Support</h3>
       <p>For general questions, bug reports, or feature requests:</p>
-      <p><a href="mailto:support@intentify.ai">support@intentify.ai</a></p>
+      <p><a href="mailto:support@intentify.tech">support@intentify.tech</a></p>
       <p style="color:#768390;font-size:13px;">We respond within 2 business days.</p>
     </div>
 
@@ -150,7 +150,7 @@ router.get('/support', (req, res) => {
     <p>In the admin dashboard, go to Evaluations and toggle "Analysis enabled" off. This immediately stops all scanning for your workspace.</p>
 
     <h3 style="margin-top:16px;font-size:15px;">How do I uninstall Intentify AI?</h3>
-    <p>Go to your Slack workspace settings &rarr; Manage Apps &rarr; Intentify AI &rarr; Remove. Your stored metadata will be automatically deleted after the configured retention period, or you can <a href="mailto:support@intentify.ai">contact us</a> for immediate deletion.</p>
+    <p>Go to your Slack workspace settings &rarr; Manage Apps &rarr; Intentify AI &rarr; Remove. Your stored metadata will be automatically deleted after the configured retention period, or you can <a href="mailto:support@intentify.tech">contact us</a> for immediate deletion.</p>
 
     <h3 style="margin-top:16px;font-size:15px;">Does Intentify AI read my messages?</h3>
     <p>Intentify AI only processes messages that contain file attachments. Message text is analyzed in real-time to understand intent, then immediately discarded. Only a one-way SHA-256 hash is stored — the original text cannot be recovered. See our <a href="/privacy">Privacy Policy</a> for full details.</p>

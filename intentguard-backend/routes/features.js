@@ -404,7 +404,7 @@ router.get('/', (req, res) => {
           <li>SLA guarantee</li>
           <li>Dedicated onboarding</li>
         </ul>
-        <a class="btn btn-secondary" href="mailto:sales@intentify.ai">Join waitlist</a>
+        <a class="btn btn-secondary" href="mailto:sales@intentify.tech">Join waitlist</a>
       </div>
     </div>
     <p class="pricing-note">Intentify AI is self-hosted. You only pay for your own OpenAI API usage.</p>
