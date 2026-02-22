@@ -387,6 +387,13 @@ async function upsertWorkspace({ id, name, platform = 'slack', status = 'active'
   );
 }
 
+async function deactivateWorkspace(workspaceId) {
+  await pool.query(
+    `UPDATE workspaces SET status = 'inactive', bot_token = NULL, user_token = NULL WHERE id = $1`,
+    [workspaceId],
+  );
+}
+
 async function getAllActiveWorkspaces() {
   const { rows } = await pool.query("SELECT * FROM workspaces WHERE status = 'active'");
   return rows;
@@ -414,5 +421,5 @@ async function seedWorkspaceSettings(workspaceId) {
 module.exports = {
   pool, initDb, getSetting, setSetting, runRetentionCleanup,
   saveResendContext, getResendContext, deleteResendContext, cleanupExpiredResendContexts,
-  getWorkspace, upsertWorkspace, getAllActiveWorkspaces, seedWorkspaceSettings,
+  getWorkspace, upsertWorkspace, deactivateWorkspace, getAllActiveWorkspaces, seedWorkspaceSettings,
 };

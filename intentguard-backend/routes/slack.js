@@ -4,7 +4,7 @@ const logger = require('../lib/logger');
 const { getSlackClient, getSlackUserClient, getBotToken, invalidateClientCache } = require('../lib/slack-client');
 const { analyzeMessage } = require('../lib/risk-engine');
 const { saveEvaluation, recordEvent } = require('../lib/evaluation-store');
-const { getSetting, saveResendContext, getResendContext, deleteResendContext, getWorkspace, upsertWorkspace } = require('../lib/db');
+const { getSetting, saveResendContext, getResendContext, deleteResendContext, getWorkspace, deactivateWorkspace } = require('../lib/db');
 const { joinChannel } = require('../lib/channel-join');
 
 const router = express.Router();
@@ -328,7 +328,7 @@ async function processEvent(payload) {
     }
   } else if (event.type === 'app_uninstalled' || event.type === 'tokens_revoked') {
     try {
-      await upsertWorkspace({ id: workspaceId, status: 'inactive' });
+      await deactivateWorkspace(workspaceId);
       invalidateClientCache(workspaceId);
       logger.info({ workspaceId, eventType: event.type }, 'Workspace deactivated');
     } catch (err) {
