@@ -57,8 +57,8 @@ Server-rendered HTML pages (dark theme, no frontend framework), **tenant-scoped*
 - `/admin/evaluations` — Paginated evaluation history + workspace settings (analysis toggle, retention days)
 - `/admin/stats` — Analytics: verdicts, detection breakdown, mismatch types, risk channels/users, cost savings
 - `/admin/integrations` — Integration hub (Slack active; Teams/Email coming soon)
-- `/admin/integrations/slack` — Channel monitoring, alert thresholds, strict audience blocking, excluded channels
-- `/features` — Public product features marketing page with AI transparency disclosure
+- `/admin/integrations/slack` — Channel monitoring, alert thresholds, strict audience blocking, excluded channels. First-install onboarding panel when `?onboarding=1`
+- `/features` — Public conversion-focused landing page with problem-agitation-solution structure, blindspot comparison, real-world scenarios, how-it-works flow, comparison table vs traditional DLP, pricing section (Community free / Pro coming soon), AI transparency disclosure, and CTAs
 - `/privacy` — Public privacy policy (required for Slack marketplace)
 - `/support` — Public support/FAQ page (required for Slack marketplace)
 - `/health` — Health check endpoint

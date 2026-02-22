@@ -23,7 +23,7 @@ router.get('/privacy', (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IntentGuard — Privacy Policy</title>
+  <title>Intentify AI — Privacy Policy</title>
   <style>${PAGE_STYLE}</style>
 </head>
 <body>
@@ -32,11 +32,11 @@ router.get('/privacy', (req, res) => {
     <h1>Privacy Policy</h1>
     <p class="meta">Last updated: February 21, 2026</p>
 
-    <h2>What IntentGuard Does</h2>
-    <p>IntentGuard is a data loss prevention (DLP) tool for Slack. When a user shares a file in a monitored channel, IntentGuard verifies that the file content matches the user's stated intent and is appropriate for the audience. It does this using a combination of regex-based heuristics and AI analysis.</p>
+    <h2>What Intentify AI Does</h2>
+    <p>Intentify AI is a data loss prevention (DLP) tool for Slack. When a user shares a file in a monitored channel, Intentify AI verifies that the file content matches the user's stated intent and is appropriate for the audience. It does this using a combination of regex-based heuristics and AI analysis.</p>
 
     <h2>Data We Collect</h2>
-    <p>IntentGuard is designed around a <strong>zero content retention</strong> principle. Here is exactly what we store and what we don't:</p>
+    <p>Intentify AI is designed around a <strong>zero content retention</strong> principle. Here is exactly what we store and what we don't:</p>
 
     <h3 style="margin-top:16px;font-size:15px;color:#3fb950;">What we store (privacy-safe metadata only)</h3>
     <ul>
@@ -64,11 +64,11 @@ router.get('/privacy', (req, res) => {
     </ul>
 
     <h2>AI Processing</h2>
-    <p>IntentGuard uses <strong>OpenAI GPT-4o-mini</strong> for file analysis. When AI analysis is triggered:</p>
+    <p>Intentify AI uses <strong>OpenAI GPT-4o-mini</strong> for file analysis. When AI analysis is triggered:</p>
     <ul>
       <li>Message text and file content are sent to OpenAI's API for a single inference call</li>
       <li>OpenAI's API data usage policy applies — as of our last review, data sent via the API is <strong>not used to train models</strong></li>
-      <li><strong>IntentGuard does not use Slack data to train any language models</strong></li>
+      <li><strong>Intentify AI does not use Slack data to train any language models</strong></li>
       <li>AI responses are used in real-time and are not persisted</li>
     </ul>
 
@@ -76,7 +76,7 @@ router.get('/privacy', (req, res) => {
     <ul>
       <li>Evaluation metadata is automatically deleted after a configurable retention period (default: 90 days)</li>
       <li>Workspace administrators can change the retention period or set it to 0 (keep forever) from the dashboard</li>
-      <li>When a workspace uninstalls IntentGuard, the workspace is marked inactive. Contact us to request full data deletion.</li>
+      <li>When a workspace uninstalls Intentify AI, the workspace is marked inactive. Contact us to request full data deletion.</li>
     </ul>
 
     <h2>Data Sharing</h2>
@@ -103,7 +103,7 @@ router.get('/privacy', (req, res) => {
     <h2>Contact</h2>
     <p>For privacy questions, data requests, or concerns:</p>
     <div class="card">
-      <p>Email: <a href="mailto:privacy@intentguard.dev">privacy@intentguard.dev</a></p>
+      <p>Email: <a href="mailto:privacy@intentify.ai">privacy@intentify.ai</a></p>
     </div>
   </div>
 </body>
@@ -116,7 +116,7 @@ router.get('/support', (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IntentGuard — Support</title>
+  <title>Intentify AI — Support</title>
   <style>${PAGE_STYLE}</style>
 </head>
 <body>
@@ -128,7 +128,7 @@ router.get('/support', (req, res) => {
     <div class="card">
       <h3>Email Support</h3>
       <p>For general questions, bug reports, or feature requests:</p>
-      <p><a href="mailto:support@intentguard.dev">support@intentguard.dev</a></p>
+      <p><a href="mailto:support@intentify.ai">support@intentify.ai</a></p>
       <p style="color:#768390;font-size:13px;">We respond within 2 business days.</p>
     </div>
 
@@ -140,22 +140,22 @@ router.get('/support', (req, res) => {
 
     <h2>Common Questions</h2>
 
-    <h3 style="margin-top:16px;font-size:15px;">How do I install IntentGuard?</h3>
+    <h3 style="margin-top:16px;font-size:15px;">How do I install Intentify AI?</h3>
     <p>Visit <a href="/slack/oauth/install">Add to Slack</a> and click the install button. You'll need to be a Slack workspace admin or owner.</p>
 
     <h3 style="margin-top:16px;font-size:15px;">How do I access the admin dashboard?</h3>
-    <p>After installing, go to your IntentGuard dashboard and sign in with Slack. Only workspace admins and owners can access the dashboard.</p>
+    <p>After installing, go to your Intentify AI dashboard and sign in with Slack. Only workspace admins and owners can access the dashboard.</p>
 
     <h3 style="margin-top:16px;font-size:15px;">How do I disable analysis?</h3>
     <p>In the admin dashboard, go to Evaluations and toggle "Analysis enabled" off. This immediately stops all scanning for your workspace.</p>
 
-    <h3 style="margin-top:16px;font-size:15px;">How do I uninstall IntentGuard?</h3>
-    <p>Go to your Slack workspace settings &rarr; Manage Apps &rarr; IntentGuard &rarr; Remove. Your stored metadata will be automatically deleted after the configured retention period, or you can <a href="mailto:support@intentguard.dev">contact us</a> for immediate deletion.</p>
+    <h3 style="margin-top:16px;font-size:15px;">How do I uninstall Intentify AI?</h3>
+    <p>Go to your Slack workspace settings &rarr; Manage Apps &rarr; Intentify AI &rarr; Remove. Your stored metadata will be automatically deleted after the configured retention period, or you can <a href="mailto:support@intentify.ai">contact us</a> for immediate deletion.</p>
 
-    <h3 style="margin-top:16px;font-size:15px;">Does IntentGuard read my messages?</h3>
-    <p>IntentGuard only processes messages that contain file attachments. Message text is analyzed in real-time to understand intent, then immediately discarded. Only a one-way SHA-256 hash is stored — the original text cannot be recovered. See our <a href="/privacy">Privacy Policy</a> for full details.</p>
+    <h3 style="margin-top:16px;font-size:15px;">Does Intentify AI read my messages?</h3>
+    <p>Intentify AI only processes messages that contain file attachments. Message text is analyzed in real-time to understand intent, then immediately discarded. Only a one-way SHA-256 hash is stored — the original text cannot be recovered. See our <a href="/privacy">Privacy Policy</a> for full details.</p>
 
-    <h3 style="margin-top:16px;font-size:15px;">What data does IntentGuard store?</h3>
+    <h3 style="margin-top:16px;font-size:15px;">What data does Intentify AI store?</h3>
     <p>Only privacy-safe metadata: message hashes, classification labels, risk scores, and file metadata. Never message text, file contents, or AI reasoning. See our <a href="/privacy">Privacy Policy</a>.</p>
   </div>
 </body>

@@ -12,7 +12,7 @@ const HIGH_CONFIDENCE_MIN_FINDINGS = 1; // 1+ high-severity finding = short-circ
 const CREDIT_CARD_PATTERNS = [
   /\b4[0-9]{3}[\s-]?[0-9]{4}[\s-]?[0-9]{4}[\s-]?[0-9]{4}\b/g,     // Visa
   /\b5[1-5][0-9]{2}[\s-]?[0-9]{4}[\s-]?[0-9]{4}[\s-]?[0-9]{4}\b/g, // Mastercard
-  /\b3[47][0-9]{1}[\s-]?[0-9]{4}[\s-]?[0-9]{6}[\s-]?[0-9]{5}\b/g,  // Amex (slightly different format)
+  /\b3[47][0-9]{2}[\s-]?[0-9]{6}[\s-]?[0-9]{5}\b/g,                  // Amex (15 digits: 4-6-5)
   /\b6(?:011|5[0-9]{2})[\s-]?[0-9]{4}[\s-]?[0-9]{4}[\s-]?[0-9]{4}\b/g, // Discover
 ];
 

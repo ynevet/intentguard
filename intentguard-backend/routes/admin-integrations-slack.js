@@ -18,6 +18,7 @@ router.get('/', async (req, res) => {
   try {
     const saved = req.query.saved === '1';
     const installed = req.query.installed === '1';
+    const onboarding = req.query.onboarding === '1';
     const oauthError = req.query.error || '';
 
     // Workspace status from DB
@@ -37,7 +38,7 @@ router.get('/', async (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IntentGuard — Slack Integration</title>
+  <title>Intentify AI — Slack Integration</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #e6edf3; }
@@ -62,6 +63,20 @@ router.get('/', async (req, res) => {
     .info-card h3 { font-size: 15px; margin-bottom: 12px; }
     .info-card p { font-size: 14px; color: #8b949e; margin-bottom: 8px; }
     .info-card code { background: #0d1117; border: 1px solid #21262d; border-radius: 4px; padding: 2px 8px; font-size: 13px; color: #8b949e; }
+    .onboarding { background: #0d2818; border: 1px solid #238636; border-radius: 8px; padding: 24px; margin-bottom: 24px; }
+    .onboarding h2 { font-size: 18px; margin-bottom: 16px; color: #3fb950; border: none; padding: 0; }
+    .onboarding .checklist { list-style: none; padding: 0; margin-bottom: 20px; }
+    .onboarding .checklist li { font-size: 14px; color: #c9d1d9; padding: 4px 0 4px 24px; position: relative; }
+    .onboarding .checklist li::before { content: '\\2713'; position: absolute; left: 0; color: #3fb950; font-weight: 700; }
+    .onboarding .next-list { list-style: disc; padding-left: 20px; margin-bottom: 20px; }
+    .onboarding .next-list li { font-size: 14px; color: #8b949e; padding: 3px 0; }
+    .onboarding .quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .onboarding .quick-action { background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 16px; text-decoration: none; transition: border-color 0.2s; }
+    .onboarding .quick-action:hover { border-color: #388bfd; }
+    .onboarding .quick-action h4 { font-size: 14px; color: #58a6ff; margin-bottom: 4px; }
+    .onboarding .quick-action p { font-size: 13px; color: #8b949e; }
+    .onboarding .dismiss { font-size: 13px; color: #8b949e; text-decoration: none; }
+    .onboarding .dismiss:hover { color: #c9d1d9; }
   </style>
 </head>
 <body>
@@ -69,14 +84,44 @@ router.get('/', async (req, res) => {
   <div class="content">
     <div class="breadcrumb"><a href="/admin/integrations">Integrations</a> / Slack</div>
     <h1>Slack Integration</h1>
-    <p class="meta">Configure how IntentGuard monitors and responds in your Slack workspace.</p>
+    <p class="meta">Configure how Intentify AI monitors and responds in your Slack workspace.</p>
 
     ${saved ? '<div class="toast">Slack settings saved</div>' : ''}
     ${installed ? '<div class="toast">Workspace connected successfully!</div>' : ''}
     ${oauthError ? `<div class="toast" style="background:#da3633;">OAuth error: ${escapeHtml(oauthError)}</div>` : ''}
 
+    ${onboarding ? `<div class="onboarding">
+      <h2>Intentify AI is protecting your workspace</h2>
+      <ul class="checklist">
+        <li>Slack connected${req.session?.teamName ? ` &mdash; ${escapeHtml(req.session.teamName)}` : ''}</li>
+        <li>Default settings configured</li>
+        <li>Auto-joining public channels</li>
+      </ul>
+      <h3 style="font-size:15px;margin-bottom:10px;color:#e6edf3;">What happens next</h3>
+      <ul class="next-list">
+        <li>Intentify AI monitors file attachments in your channels</li>
+        <li>Mismatches &rarr; sender gets a private DM with reasoning</li>
+        <li>Matches &rarr; checkmark emoji on the message</li>
+      </ul>
+      <div class="quick-actions">
+        <a class="quick-action" href="https://slack.com" target="_blank" rel="noopener">
+          <h4>Test it out</h4>
+          <p>Share a file with a wrong description in Slack to see Intentify AI in action.</p>
+        </a>
+        <a class="quick-action" href="#channel-monitoring">
+          <h4>Configure channels</h4>
+          <p>Choose which channels to monitor or exclude from scanning.</p>
+        </a>
+        <a class="quick-action" href="/admin/evaluations">
+          <h4>View dashboard</h4>
+          <p>See scan history, verdicts, and analytics.</p>
+        </a>
+      </div>
+      <a class="dismiss" href="/admin/integrations/slack?installed=1">Dismiss onboarding</a>
+    </div>` : ''}
+
     <form class="settings" method="POST" action="/admin/integrations/slack">
-      <h2>Channel Monitoring</h2>
+      <h2 id="channel-monitoring">Channel Monitoring</h2>
       <div class="field">
         <label for="monitored_channels">Monitored channels</label>
         <input type="text" id="monitored_channels" name="monitored_channels" value="${escapeHtml(monitoredChannels)}" placeholder="All channels">
@@ -127,7 +172,7 @@ router.get('/', async (req, res) => {
 
     <div class="info-card" style="margin-top:16px;">
       <h3>About This Integration</h3>
-      <p>IntentGuard monitors file attachments shared in your Slack workspace and verifies that file content matches the sender's stated intent using AI-powered three-axis analysis.</p>
+      <p>Intentify AI monitors file attachments shared in your Slack workspace and verifies that file content matches the sender's stated intent using AI-powered three-axis analysis.</p>
       <p>Webhook endpoint: <code>POST /slack/events</code></p>
     </div>
   </div>

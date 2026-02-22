@@ -151,7 +151,7 @@ router.get('/evaluations', async (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IntentGuard — Admin Dashboard</title>
+  <title>Intentify AI — Admin Dashboard</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #e6edf3; }
@@ -197,7 +197,7 @@ router.get('/evaluations', async (req, res) => {
     <div class="field">
       <label for="analysis_enabled">Analysis enabled</label>
       <input type="checkbox" id="analysis_enabled" name="analysis_enabled" ${analysisEnabled ? 'checked' : ''}>
-      <span class="hint">When off, IntentGuard will not analyze any messages.</span>
+      <span class="hint">When off, Intentify AI will not analyze any messages.</span>
     </div>
     <div class="field">
       <label for="retention_days">Data retention (days)</label>

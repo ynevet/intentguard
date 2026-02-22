@@ -32,7 +32,7 @@ function buildNav(activePage, session) {
 
   return `<nav style="background:#161b22;border-bottom:1px solid #21262d;padding:12px 24px;display:flex;align-items:center;gap:20px;">
   <a href="/" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:#e6edf3;font-weight:700;font-size:16px;">
-    <img src="/public/logo.png" alt="IntentGuard" style="height:28px;width:28px;">IntentGuard
+    <img src="/public/logo.png" alt="Intentify AI" style="height:28px;width:28px;">Intentify AI
   </a>
   ${link('/features', 'Features', 'features')}
   ${link('/admin/evaluations', 'Evaluations', 'admin')}

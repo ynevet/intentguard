@@ -48,7 +48,7 @@ async function handleResendReply(event, workspaceId = 'default') {
         channel_id: originalChannel,
         file: buffer,
         filename: file.name,
-        initial_comment: `Re-sent by <@${event.user}> via IntentGuard`,
+        initial_comment: `Re-sent by <@${event.user}> via Intentify AI`,
       });
 
       uploaded.push(file.name);
@@ -183,7 +183,7 @@ async function reactToAssessment(event, assessment, workspaceId = 'default', eva
         const dm = await client.conversations.open({ users: event.user });
         const dmMsg = await client.chat.postMessage({
           channel: dm.channel.id,
-          text: `:no_entry_sign: *IntentGuard — File removed* (${confidencePct}% confidence)\n\nA file you shared in <#${event.channel}> was removed because it may not match what you described.\n\n*Reasoning:*\n${assessment.reasoning}${contextRiskLabel}\n\n*Files removed:*\n${fileDetails}\n\n:arrow_right: *To re-send,* reply to this message with the correct file attached. I'll post it to <#${event.channel}> for you.`,
+          text: `:no_entry_sign: *Intentify AI — File removed* (${confidencePct}% confidence)\n\nA file you shared in <#${event.channel}> was removed because it may not match what you described.\n\n*Reasoning:*\n${assessment.reasoning}${contextRiskLabel}\n\n*Files removed:*\n${fileDetails}\n\n:arrow_right: *To re-send,* reply to this message with the correct file attached. I'll post it to <#${event.channel}> for you.`,
         });
         // Store context so the bot can link DM thread replies back to the original channel
         await saveResendContext(dm.channel.id, dmMsg.ts, event.channel, event.user, workspaceId);

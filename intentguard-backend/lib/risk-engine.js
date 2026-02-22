@@ -78,7 +78,7 @@ function getSystemPrompt(strictAudienceBlocking = false) {
 - "Project mockup" → credentials or API keys
 - PII/financials in a shared/external channel (Slack Connect)`;
 
-  return `You are IntentGuard, a DLP system. Verify files shared in messages by checking:
+  return `You are Intentify AI, a DLP system. Verify files shared in messages by checking:
 1. Intent — what the user claims the file is
 2. Content — what's actually inside
 3. Context — whether this is appropriate for the channel/audience

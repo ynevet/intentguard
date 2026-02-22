@@ -49,7 +49,7 @@ function loginPage(error = '', installed = false) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IntentGuard — Login</title>
+  <title>Intentify AI — Login</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -165,8 +165,8 @@ function loginPage(error = '', installed = false) {
 </head>
 <body>
   <div class="login-card">
-    <img src="/public/logo.png" alt="IntentGuard">
-    <h1><span>IntentGuard</span></h1>
+    <img src="/public/logo.png" alt="Intentify AI">
+    <h1><span>Intentify AI</span></h1>
     <p>${hasSlack ? 'Sign in with your Slack workspace to access the dashboard.' : 'Enter your admin secret to access the dashboard.'}</p>
     ${installed ? '<div style="background:#2ea043;color:#fff;padding:10px 12px;border-radius:6px;font-size:13px;margin-bottom:16px;">Workspace connected! Sign in to continue.</div>' : ''}
     ${error ? `<div class="error">${escapeHtml(error)}</div>` : ''}
@@ -193,7 +193,7 @@ function errorPage(title, message) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IntentGuard — ${escapeHtml(title)}</title>
+  <title>Intentify AI — ${escapeHtml(title)}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -375,13 +375,13 @@ authRouter.get('/callback', async (req, res) => {
       throw new Error('Missing team_id or user_id from Slack');
     }
 
-    // Check workspace exists in our DB (must have installed IntentGuard)
+    // Check workspace exists in our DB (must have installed Intentify AI)
     const workspace = await getWorkspace(teamId);
     if (!workspace) {
-      logger.warn({ teamId, userId }, 'Sign-in attempt from workspace without IntentGuard');
+      logger.warn({ teamId, userId }, 'Sign-in attempt from workspace without Intentify AI');
       return res.send(errorPage(
         'Workspace not found',
-        'Your workspace hasn\'t installed IntentGuard yet. Ask a workspace admin to <a href="/slack/oauth/install" style="color:#58a6ff;">install it first</a>.',
+        'Your workspace hasn\'t installed Intentify AI yet. Ask a workspace admin to <a href="/slack/oauth/install" style="color:#58a6ff;">install it first</a>.',
       ));
     }
 
@@ -398,7 +398,7 @@ authRouter.get('/callback', async (req, res) => {
       logger.warn({ teamId, userId, displayName }, 'Non-admin sign-in attempt');
       return res.send(errorPage(
         'Access denied',
-        'Only workspace admins and owners can access the IntentGuard dashboard. Contact your workspace admin for access.',
+        'Only workspace admins and owners can access the Intentify AI dashboard. Contact your workspace admin for access.',
       ));
     }
 

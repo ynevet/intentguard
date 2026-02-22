@@ -19,7 +19,7 @@ router.get('/', async (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IntentGuard — Integrations</title>
+  <title>Intentify AI — Integrations</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #e6edf3; }
@@ -77,7 +77,7 @@ router.get('/', async (req, res) => {
         <p>Channel monitoring, alert thresholds, and DM notification settings for your Slack workspace.</p>
         <span class="status-badge" style="background:${slackBadgeColor};">${slackStatus}</span>
       </a>
-      ${process.env.SLACK_CLIENT_ID ? '<a class="integration-card" href="/slack/oauth/install" style="text-align:center;border-style:dashed;"><div class="icon">+</div><h2>Add Workspace</h2><p>Install IntentGuard in another Slack workspace via OAuth.</p></a>' : ''}
+      ${process.env.SLACK_CLIENT_ID ? '<a class="integration-card" href="/slack/oauth/install" style="text-align:center;border-style:dashed;"><div class="icon">+</div><h2>Add Workspace</h2><p>Install Intentify AI in another Slack workspace via OAuth.</p></a>' : ''}
 
       <div class="coming-soon">
         <div class="header">

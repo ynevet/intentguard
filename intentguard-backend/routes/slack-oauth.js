@@ -156,7 +156,7 @@ router.get('/callback', async (req, res) => {
               path: '/',
             });
             logger.info({ teamId, authedUserId, displayName }, 'Auto-signed in installing admin');
-            return res.redirect('/admin/integrations/slack?installed=1');
+            return res.redirect('/admin/integrations/slack?installed=1&onboarding=1');
           }
         }
       } catch (signInErr) {
@@ -191,7 +191,7 @@ router.get('/install', (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IntentGuard — Add to Slack</title>
+  <title>Intentify AI — Add to Slack</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #e6edf3; }
@@ -225,7 +225,7 @@ router.get('/install', (req, res) => {
 <body>
   ${buildNav('')}
   <div class="content">
-    <h1>Add IntentGuard to Slack</h1>
+    <h1>Add Intentify AI to Slack</h1>
     <p class="subtitle">AI-powered DLP that catches attachments that don't match what users say they are.</p>
     ${errorMsg ? `<div class="error-toast">${errorMsg}</div><br>` : ''}
     ${configured

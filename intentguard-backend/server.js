@@ -49,7 +49,7 @@ app.get('/', requireAuth, (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IntentGuard — AI-Powered DLP</title>
+  <title>Intentify AI — AI-Powered DLP</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -111,8 +111,8 @@ app.get('/', requireAuth, (req, res) => {
 <body>
   ${buildNav('home', req.session)}
   <div class="hero">
-    <img src="/public/logo.png" alt="IntentGuard logo">
-    <h1><span>IntentGuard</span></h1>
+    <img src="/public/logo.png" alt="Intentify AI logo">
+    <h1><span>Intentify AI</span></h1>
     <p class="tagline">AI-powered DLP that catches the #1 blindspot: attachments that don't match what users say they are.</p>
     <div class="nav-cards">
       <a class="nav-card" href="/features">
@@ -137,7 +137,7 @@ app.get('/', requireAuth, (req, res) => {
       </a>
     </div>
   </div>
-  <div class="footer">IntentGuard &mdash; AI-powered Data Loss Prevention for modern teams</div>
+  <div class="footer">Intentify AI &mdash; AI-powered Data Loss Prevention for modern teams</div>
 </body>
 </html>`);
 });
