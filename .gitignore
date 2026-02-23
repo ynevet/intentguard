@@ -4,9 +4,8 @@ logs/
 .claude/
 
 # Sensitive files — never commit
+*.txt
 App Creds.png
-slack.txt
-token.txt
 nul
 
 # Local dev config
