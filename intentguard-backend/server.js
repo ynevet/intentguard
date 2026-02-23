@@ -26,6 +26,41 @@ app.use(cookieParser());
 
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
+// SEO: robots.txt, sitemap.xml, llms.txt
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send(`User-agent: *
+Allow: /
+Sitemap: https://intentify.tech/sitemap.xml
+`);
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  const today = new Date().toISOString().split('T')[0];
+  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://intentify.tech/features</loc><lastmod>${today}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://intentify.tech/slack/oauth/install</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://intentify.tech/support</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://intentify.tech/privacy</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.3</priority></url>
+</urlset>
+`);
+});
+
+app.get('/llms.txt', (req, res) => {
+  res.type('text/plain').send(`# Intentify AI
+> AI-powered data loss prevention for Slack
+
+Intentify AI catches the #1 blindspot in data protection: when someone sends the wrong file.
+Three-axis verification: Intent vs Content vs Context.
+
+## Key pages
+- Product overview: https://intentify.tech/features
+- Install: https://intentify.tech/slack/oauth/install
+- Privacy: https://intentify.tech/privacy
+- Support: https://intentify.tech/support
+`);
+});
+
 // Public routes (no auth)
 app.use('/slack/oauth', slackOAuthRouter);
 app.use('/slack', slackRouter);

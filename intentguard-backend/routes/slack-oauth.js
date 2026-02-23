@@ -5,7 +5,7 @@ const logger = require('../lib/logger');
 const { upsertWorkspace, seedWorkspaceSettings } = require('../lib/db');
 const { invalidateClientCache, getSlackClient } = require('../lib/slack-client');
 const { createSession, COOKIE_NAME, COOKIE_MAX_AGE } = require('../lib/auth');
-const { buildNav } = require('../lib/nav');
+const { buildNav, buildHead } = require('../lib/nav');
 
 const router = express.Router();
 
@@ -189,9 +189,11 @@ router.get('/install', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Intentify AI — Add to Slack</title>
+  ${buildHead({
+    title: 'Intentify AI — Add to Slack',
+    description: 'Install Intentify AI in your Slack workspace. One-click setup, free, no sales call required. Prevent data leaks from wrong file attachments.',
+    path: '/slack/oauth/install',
+  })}
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #e6edf3; }

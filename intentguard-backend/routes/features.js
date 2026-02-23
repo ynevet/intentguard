@@ -1,14 +1,53 @@
+const crypto = require('crypto');
 const express = require('express');
-const { buildNav } = require('../lib/nav');
+const logger = require('../lib/logger');
+const { buildNav, buildHead } = require('../lib/nav');
+const { saveLead } = require('../lib/db');
 const router = express.Router();
 
+// In-memory rate limiting for contact form
+const submissions = new Map();
+const RATE_WINDOW_MS = 60 * 60 * 1000;
+const RATE_LIMIT = 3;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of submissions) {
+    if (now - data.windowStart > RATE_WINDOW_MS) submissions.delete(ip);
+  }
+}, 10 * 60 * 1000);
+
 router.get('/', (req, res) => {
+  const thanks = req.query.thanks === '1';
+  const rateLimited = req.query.error === 'rate_limit';
+  const jsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name: 'Intentify AI',
+      url: 'https://intentify.tech',
+      logo: 'https://intentify.tech/public/logo.png',
+      description: 'AI-powered data loss prevention for Slack that catches wrong file attachments.',
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Intentify AI',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      description: 'AI-powered DLP for Slack — three-axis verification of Intent vs Content vs Context.',
+    },
+  ];
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Intentify AI — Prevent Data Leaks Before They Happen</title>
+  ${buildHead({
+    title: 'Intentify AI — Prevent Data Leaks Before They Happen',
+    description: 'AI-powered DLP for Slack that catches the #1 cause of data leaks: wrong file attachments. Three-axis verification — Intent vs Content vs Context. Free, self-hosted, zero content retention.',
+    path: '/features',
+    jsonLd,
+  })}
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -197,6 +236,19 @@ router.get('/', (req, res) => {
     .cta p { font-size: 16px; color: #8b949e; margin-bottom: 28px; }
     .cta .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
+    /* Contact Form */
+    .contact-card { background: #161b22; border: 1px solid #21262d; border-radius: 12px; padding: 32px 28px; max-width: 560px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 640px) { .form-row { grid-template-columns: 1fr; } }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 14px; color: #c9d1d9; margin-bottom: 6px; }
+    .form-group input, .form-group textarea {
+      width: 100%; padding: 10px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+      color: #e6edf3; font-size: 14px; font-family: inherit;
+    }
+    .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #58a6ff; }
+    .form-group textarea { resize: vertical; }
+
     /* Footer */
     .footer { text-align: center; padding: 24px; font-size: 13px; color: #484f58; border-top: 1px solid #21262d; }
   </style>
@@ -204,6 +256,9 @@ router.get('/', (req, res) => {
 <body>
 
   ${buildNav('features', req.session)}
+
+  ${thanks ? '<div style="background:#238636;color:#fff;padding:12px 24px;text-align:center;font-size:14px;">Thanks for reaching out! We\'ll be in touch soon.</div>' : ''}
+  ${rateLimited ? '<div style="background:#da3633;color:#fff;padding:12px 24px;text-align:center;font-size:14px;">Too many submissions. Please try again later.</div>' : ''}
 
   <!-- Hero -->
   <div class="hero">
@@ -423,6 +478,35 @@ router.get('/', (req, res) => {
     </div>
   </div>
 
+  <!-- Contact Form -->
+  <div class="section" style="border-top:1px solid #21262d;">
+    <h2>Get in Touch</h2>
+    <p class="subtitle">Interested in Intentify AI for your organization? Leave your details and we'll reach out.</p>
+    <div class="contact-card">
+      <form method="POST" action="/features/contact">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="name">Name *</label>
+            <input type="text" id="name" name="name" required maxlength="100" placeholder="Your name">
+          </div>
+          <div class="form-group">
+            <label for="email">Work email *</label>
+            <input type="email" id="email" name="email" required maxlength="200" placeholder="you@company.com">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="company">Company</label>
+          <input type="text" id="company" name="company" maxlength="200" placeholder="Your company">
+        </div>
+        <div class="form-group">
+          <label for="message">Message</label>
+          <textarea id="message" name="message" maxlength="1000" rows="3" placeholder="Tell us about your use case..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;text-align:center;border:none;cursor:pointer;font-family:inherit;">Send</button>
+      </form>
+    </div>
+  </div>
+
   <!-- CTA -->
   <div class="cta">
     <h2>Stop data leaks before they happen</h2>
@@ -440,6 +524,51 @@ router.get('/', (req, res) => {
 
 </body>
 </html>`);
+});
+
+router.post('/contact', express.urlencoded({ extended: false }), async (req, res) => {
+  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+
+  // Rate limiting
+  const now = Date.now();
+  const entry = submissions.get(ip);
+  if (entry && now - entry.windowStart < RATE_WINDOW_MS) {
+    if (entry.count >= RATE_LIMIT) {
+      return res.redirect('/features?error=rate_limit');
+    }
+    entry.count++;
+  } else {
+    submissions.set(ip, { count: 1, windowStart: now });
+  }
+
+  const { name, email, company, message } = req.body;
+
+  // Validation
+  if (!name || !email || typeof name !== 'string' || typeof email !== 'string') {
+    return res.redirect('/features');
+  }
+  if (name.length > 100 || email.length > 200) {
+    return res.redirect('/features');
+  }
+  if (company && String(company).length > 200) {
+    return res.redirect('/features');
+  }
+  if (message && String(message).length > 1000) {
+    return res.redirect('/features');
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.redirect('/features');
+  }
+
+  const ipHash = crypto.createHash('sha256').update(ip).digest('hex');
+
+  try {
+    await saveLead({ name: name.trim(), email: email.trim(), company: company?.trim(), message: message?.trim(), ipHash, source: 'features' });
+  } catch (err) {
+    logger.error({ err }, 'Failed to save lead');
+  }
+
+  res.redirect('/features?thanks=1');
 });
 
 module.exports = router;

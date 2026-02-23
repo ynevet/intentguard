@@ -1,5 +1,5 @@
 const express = require('express');
-const { buildNav } = require('../lib/nav');
+const { buildNav, buildHead } = require('../lib/nav');
 
 const router = express.Router();
 
@@ -21,9 +21,11 @@ router.get('/privacy', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Intentify AI — Privacy Policy</title>
+  ${buildHead({
+    title: 'Intentify AI — Privacy Policy',
+    description: 'Intentify AI privacy policy. Zero content retention — we store only privacy-safe metadata. Message text is SHA-256 hashed. File contents are never stored.',
+    path: '/privacy',
+  })}
   <style>${PAGE_STYLE}</style>
 </head>
 <body>
@@ -114,9 +116,11 @@ router.get('/support', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Intentify AI — Support</title>
+  ${buildHead({
+    title: 'Intentify AI — Support',
+    description: 'Get help with Intentify AI. Installation guide, FAQ, and contact information for Slack DLP support.',
+    path: '/support',
+  })}
   <style>${PAGE_STYLE}</style>
 </head>
 <body>

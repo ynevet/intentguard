@@ -272,6 +272,20 @@ async function initDb() {
         ON CONFLICT (workspace_id, key) DO NOTHING;
     `);
 
+    // ── Leads table (global, pre-install) ──
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS leads (
+        id         SERIAL PRIMARY KEY,
+        name       TEXT NOT NULL,
+        email      TEXT NOT NULL,
+        company    TEXT,
+        message    TEXT,
+        ip_hash    TEXT,
+        source     TEXT DEFAULT 'features',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
     logger.info('Database schema initialized');
   } finally {
     client.release();
@@ -418,8 +432,16 @@ async function seedWorkspaceSettings(workspaceId) {
   }
 }
 
+async function saveLead({ name, email, company, message, ipHash, source }) {
+  await pool.query(
+    'INSERT INTO leads (name, email, company, message, ip_hash, source) VALUES ($1, $2, $3, $4, $5, $6)',
+    [name, email, company || null, message || null, ipHash, source || 'features'],
+  );
+}
+
 module.exports = {
   pool, initDb, getSetting, setSetting, runRetentionCleanup,
   saveResendContext, getResendContext, deleteResendContext, cleanupExpiredResendContexts,
   getWorkspace, upsertWorkspace, deactivateWorkspace, getAllActiveWorkspaces, seedWorkspaceSettings,
+  saveLead,
 };

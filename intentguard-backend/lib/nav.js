@@ -48,4 +48,28 @@ function escapeHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-module.exports = { buildNav };
+function buildHead({ title, description, path, type = 'website', jsonLd = null }) {
+  const base = 'https://intentify.tech';
+  const url = `${base}${path}`;
+  const image = `${base}/public/logo.png`;
+  return `
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(description)}">
+    <link rel="canonical" href="${url}">
+    <meta property="og:title" content="${escapeHtml(title)}">
+    <meta property="og:description" content="${escapeHtml(description)}">
+    <meta property="og:url" content="${url}">
+    <meta property="og:image" content="${image}">
+    <meta property="og:type" content="${type}">
+    <meta property="og:site_name" content="Intentify AI">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="${escapeHtml(title)}">
+    <meta name="twitter:description" content="${escapeHtml(description)}">
+    <meta name="twitter:image" content="${image}">
+    ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>` : ''}
+  `;
+}
+
+module.exports = { buildNav, buildHead };
