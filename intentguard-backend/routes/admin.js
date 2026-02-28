@@ -86,15 +86,14 @@ router.get('/evaluations', async (req, res) => {
     const offset = (page - 1) * limit;
 
     const countResult = await pool.query(
-      "SELECT COUNT(*) FROM evaluations WHERE workspace_id = $1 AND match != 'skipped'",
-      [req.workspaceId],
+      "SELECT COUNT(*) FROM evaluations WHERE match != 'skipped'",
     );
     const total = parseInt(countResult.rows[0].count, 10);
     const totalPages = Math.max(1, Math.ceil(total / limit));
 
     const { rows } = await pool.query(
-      "SELECT * FROM evaluations WHERE workspace_id = $1 AND match != 'skipped' ORDER BY created_at DESC LIMIT $2 OFFSET $3",
-      [req.workspaceId, limit, offset],
+      "SELECT * FROM evaluations WHERE match != 'skipped' ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+      [limit, offset],
     );
 
     const tableRows = rows.map((r) => {
@@ -115,6 +114,7 @@ router.get('/evaluations', async (req, res) => {
       return `<tr>
         <td>${r.id}</td>
         <td>${created}</td>
+        <td>${escapeHtml(r.workspace_id)}</td>
         <td>${escapeHtml(r.slack_user)}</td>
         <td>${escapeHtml(r.slack_channel)}</td>
         <td>${matchBadge(r.match)}</td>
@@ -213,6 +213,7 @@ router.get('/evaluations', async (req, res) => {
       <tr>
         <th>ID</th>
         <th>Time</th>
+        <th>Workspace</th>
         <th>User</th>
         <th>Channel</th>
         <th>Match</th>
@@ -226,7 +227,7 @@ router.get('/evaluations', async (req, res) => {
       </tr>
     </thead>
     <tbody>
-      ${tableRows || '<tr><td colspan="12" style="text-align:center;padding:24px;">No evaluations yet</td></tr>'}
+      ${tableRows || '<tr><td colspan="13" style="text-align:center;padding:24px;">No evaluations yet</td></tr>'}
     </tbody>
   </table>
   </div>

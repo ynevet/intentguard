@@ -6,8 +6,6 @@ const logger = require('../lib/logger');
 const router = express.Router();
 
 router.get('/', async (req, res) => {
-  const workspaceId = req.workspaceId;
-
   try {
     // ── Live stats for current month ──
     const now = new Date();
@@ -22,14 +20,17 @@ router.get('/', async (req, res) => {
         COUNT(*) FILTER (WHERE match = 'mismatch') AS mismatches,
         COUNT(*) FILTER (WHERE match = 'uncertain') AS uncertain
       FROM evaluations
-      WHERE workspace_id = $1 AND created_at >= $2
-    `, [workspaceId, monthStart]);
+      WHERE created_at >= $1
+    `, [monthStart]);
 
-    // Last month from monthly_summaries (or live if no summary yet)
+    // Last month from monthly_summaries (aggregate all workspaces)
     const lastMonthSummary = await pool.query(`
-      SELECT * FROM monthly_summaries
-      WHERE workspace_id = $1 AND month = $2
-    `, [workspaceId, lastMonthStart]);
+      SELECT
+        SUM(total_scans) AS total_scans,
+        SUM(mismatches) AS mismatches
+      FROM monthly_summaries
+      WHERE month = $1
+    `, [lastMonthStart]);
 
     const lastMonth = lastMonthSummary.rows[0] || null;
 
@@ -39,49 +40,49 @@ router.get('/', async (req, res) => {
         COUNT(*) FILTER (WHERE event_type = 'pre_scan_hit') AS pre_scan,
         COUNT(*) FILTER (WHERE event_type = 'llm_analysis') AS llm
       FROM detection_events
-      WHERE workspace_id = $1 AND created_at >= $2
-    `, [workspaceId, monthStart]);
+      WHERE created_at >= $1
+    `, [monthStart]);
 
     // File analysis method breakdown
     const fileMethodBreakdown = await pool.query(`
       SELECT analysis_method, COUNT(*) AS cnt
       FROM file_analyses
-      WHERE workspace_id = $1 AND created_at >= $2
+      WHERE created_at >= $1
       GROUP BY analysis_method
       ORDER BY cnt DESC
-    `, [workspaceId, monthStart]);
+    `, [monthStart]);
 
     // Top mismatch types (current month)
     const mismatchTypes = await pool.query(`
       SELECT mismatch_type, COUNT(*) AS cnt
       FROM evaluations
-      WHERE workspace_id = $1 AND match = 'mismatch' AND mismatch_type != 'none' AND created_at >= $2
+      WHERE match = 'mismatch' AND mismatch_type != 'none' AND created_at >= $1
       GROUP BY mismatch_type ORDER BY cnt DESC LIMIT 5
-    `, [workspaceId, monthStart]);
+    `, [monthStart]);
 
     // Top risk channels
     const riskChannels = await pool.query(`
       SELECT slack_channel, COUNT(*) AS cnt
       FROM evaluations
-      WHERE workspace_id = $1 AND match = 'mismatch' AND created_at >= $2
+      WHERE match = 'mismatch' AND created_at >= $1
       GROUP BY slack_channel ORDER BY cnt DESC LIMIT 5
-    `, [workspaceId, monthStart]);
+    `, [monthStart]);
 
     // Top risk users
     const riskUsers = await pool.query(`
       SELECT slack_user, COUNT(*) AS cnt
       FROM evaluations
-      WHERE workspace_id = $1 AND match = 'mismatch' AND created_at >= $2
+      WHERE match = 'mismatch' AND created_at >= $1
       GROUP BY slack_user ORDER BY cnt DESC LIMIT 5
-    `, [workspaceId, monthStart]);
+    `, [monthStart]);
 
     // File type breakdown
     const fileTypes = await pool.query(`
       SELECT classification_label, COUNT(*) AS cnt
       FROM file_analyses
-      WHERE workspace_id = $1 AND created_at >= $2 AND classification_label IS NOT NULL AND classification_label != 'unknown'
+      WHERE created_at >= $1 AND classification_label IS NOT NULL AND classification_label != 'unknown'
       GROUP BY classification_label ORDER BY cnt DESC LIMIT 10
-    `, [workspaceId, monthStart]);
+    `, [monthStart]);
 
     // Action events summary
     const actionStats = await pool.query(`
@@ -90,8 +91,8 @@ router.get('/', async (req, res) => {
         COUNT(*) FILTER (WHERE event_type = 'dm_sent') AS dms_sent,
         COUNT(*) FILTER (WHERE event_type = 'user_resent') AS user_resends
       FROM detection_events
-      WHERE workspace_id = $1 AND created_at >= $2
-    `, [workspaceId, monthStart]);
+      WHERE created_at >= $1
+    `, [monthStart]);
 
     // Build the page
     const cur = currentStats.rows[0];
