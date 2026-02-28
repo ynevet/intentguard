@@ -72,7 +72,7 @@ router.get('/', (req, res) => {
     .hero .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
     /* Buttons */
-    a.btn {
+    a.btn, button.btn {
       display: inline-block;
       padding: 12px 28px;
       border-radius: 8px;
