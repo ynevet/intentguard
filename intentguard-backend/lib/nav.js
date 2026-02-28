@@ -35,6 +35,7 @@ function buildNav(activePage, session) {
     <img src="/public/logo.png" alt="Intentify AI" style="height:28px;width:28px;">Intentify AI
   </a>
   ${link('/features', 'Features', 'features')}
+  ${link('/about', 'About', 'about')}
   ${link('/admin/evaluations', 'Evaluations', 'admin')}
   ${link('/admin/stats', 'Stats', 'stats')}
   ${integrationsHtml}

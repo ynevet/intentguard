@@ -11,6 +11,7 @@ const slackOAuthRouter = require('./routes/slack-oauth');
 const adminRouter = require('./routes/admin');
 const { loginRouter: adminLoginRouter, authRouter: adminAuthRouter } = require('./routes/admin-login');
 const featuresRouter = require('./routes/features');
+const aboutRouter = require('./routes/about');
 const integrationsRouter = require('./routes/admin-integrations');
 const integrationsSlackRouter = require('./routes/admin-integrations-slack');
 const statsRouter = require('./routes/admin-stats');
@@ -40,6 +41,7 @@ app.get('/sitemap.xml', (req, res) => {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://intentify.tech/features</loc><lastmod>${today}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
   <url><loc>https://intentify.tech/slack/oauth/install</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://intentify.tech/about</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://intentify.tech/support</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://intentify.tech/privacy</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.3</priority></url>
 </urlset>
@@ -55,6 +57,7 @@ Three-axis verification: Intent vs Content vs Context.
 
 ## Key pages
 - Product overview: https://intentify.tech/features
+- About: https://intentify.tech/about
 - Install: https://intentify.tech/slack/oauth/install
 - Privacy: https://intentify.tech/privacy
 - Support: https://intentify.tech/support
@@ -67,6 +70,7 @@ app.use('/slack', slackRouter);
 app.use('/admin/login', adminLoginRouter);
 app.use('/admin/auth', adminAuthRouter);
 app.use('/features', featuresRouter);
+app.use('/about', aboutRouter);
 app.use('/', legalRouter);
 
 // Health check
