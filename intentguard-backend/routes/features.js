@@ -257,7 +257,7 @@ router.get('/', (req, res) => {
 
   ${buildNav('features', req.session)}
 
-  ${thanks ? '<div style="background:#238636;color:#fff;padding:12px 24px;text-align:center;font-size:14px;">Thanks for reaching out! We\'ll be in touch soon.</div>' : ''}
+  ${''}
   ${rateLimited ? '<div style="background:#da3633;color:#fff;padding:12px 24px;text-align:center;font-size:14px;">Too many submissions. Please try again later.</div>' : ''}
 
   <!-- Hero -->
@@ -480,6 +480,10 @@ router.get('/', (req, res) => {
 
   <!-- Contact Form -->
   <div class="section" style="border-top:1px solid #21262d;">
+    ${thanks ? `
+    <h2>Thank You!</h2>
+    <p class="subtitle">We received your message and will be in touch soon.</p>
+    ` : `
     <h2>Get in Touch</h2>
     <p class="subtitle">Interested in Intentify AI for your organization? Leave your details and we'll reach out.</p>
     <div class="contact-card">
@@ -502,9 +506,10 @@ router.get('/', (req, res) => {
           <label for="message">Message</label>
           <textarea id="message" name="message" maxlength="1000" rows="3" placeholder="Tell us about your use case..."></textarea>
         </div>
-        <button type="submit" class="btn btn-primary" style="width:100%;text-align:center;border:none;cursor:pointer;font-family:inherit;">Send</button>
+        <button type="submit" class="btn btn-primary" style="border:none;cursor:pointer;font-family:inherit;">Send</button>
       </form>
     </div>
+    `}
   </div>
 
   <!-- CTA -->
