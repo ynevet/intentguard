@@ -260,9 +260,9 @@ router.get('/', (req, res) => {
     <p class="subtitle">The people building the future of data loss prevention.</p>
     <div class="team-grid">
       <div class="team-card">
-        <div class="avatar">YN</div>
-        <h3>Yaniv Neveev</h3>
-        <div class="role">Founder &amp; CEO</div>
+        <div class="avatar">?</div>
+        <h3>Coming Soon</h3>
+        <div class="role">Founding Team</div>
       </div>
       <div class="team-card">
         <div class="avatar">?</div>
