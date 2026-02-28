@@ -159,6 +159,11 @@ router.get('/', (req, res) => {
     .cta p { font-size: 16px; color: #8b949e; margin-bottom: 28px; }
     .cta .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
+    /* Video */
+    .video-wrap { max-width: 720px; margin: 40px auto 0; }
+    .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; border: 1px solid #21262d; }
+    .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+
     /* Footer */
     .footer { text-align: center; padding: 24px; font-size: 13px; color: #484f58; border-top: 1px solid #21262d; }
   </style>
@@ -224,6 +229,12 @@ router.get('/', (req, res) => {
       </div>
     </div>
     <p style="font-size:15px;color:#8b949e;max-width:720px;">When any axis misaligns, Intentify AI intervenes before the data leaves. It also runs conventional pattern detection for credit cards, SSNs, API keys, and other sensitive data &mdash; at zero API cost via heuristic pre-scan.</p>
+    <div class="video-wrap">
+      <h3 style="font-size:18px;text-align:center;margin-bottom:16px;color:#8b949e;">See it in action</h3>
+      <div class="video-container">
+        <iframe src="https://www.youtube.com/embed/R6s9ju1yZ6M" title="Intentify AI Slack Bot Demo" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div>
+    </div>
   </div>
 
   <!-- Why Intentify AI -->
