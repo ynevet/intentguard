@@ -166,4 +166,79 @@ router.get('/support', (req, res) => {
 </html>`);
 });
 
+router.get('/terms', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  ${buildHead({
+    title: 'Intentify AI — Terms of Service',
+    description: 'Terms of Service for Intentify AI. Read our terms governing the use of our Slack DLP tool.',
+    path: '/terms',
+  })}
+  <style>${PAGE_STYLE}</style>
+</head>
+<body>
+  ${buildNav('')}
+  <div class="content">
+    <h1>Terms of Service</h1>
+    <p class="meta">Last updated: March 3, 2026</p>
+
+    <h2>1. Acceptance of Terms</h2>
+    <p>By installing, accessing, or using Intentify AI ("the Service"), you agree to be bound by these Terms of Service. If you are using the Service on behalf of an organization, you represent that you have authority to bind that organization to these terms.</p>
+
+    <h2>2. Description of Service</h2>
+    <p>Intentify AI is a data loss prevention (DLP) tool for Slack that verifies file attachments match the sender's stated intent and are appropriate for the destination channel. The Service uses a combination of heuristic detection and AI analysis to identify potential data leaks.</p>
+
+    <h2>3. Eligibility</h2>
+    <p>You must be a Slack workspace administrator or owner to install Intentify AI. The Service is intended for use by businesses and organizations.</p>
+
+    <h2>4. Your Responsibilities</h2>
+    <ul>
+      <li>You are responsible for ensuring your use of the Service complies with applicable laws and your organization's policies</li>
+      <li>You are responsible for informing your workspace members that Intentify AI is monitoring file attachments</li>
+      <li>You must not attempt to reverse-engineer, misuse, or interfere with the Service</li>
+      <li>You are responsible for maintaining the security of your admin credentials</li>
+    </ul>
+
+    <h2>5. Data and Privacy</h2>
+    <p>Our handling of your data is governed by our <a href="/privacy">Privacy Policy</a>. Key points:</p>
+    <ul>
+      <li>We operate on a <strong>zero content retention</strong> principle — message text and file contents are never stored</li>
+      <li>Only privacy-safe metadata is persisted (hashes, labels, file metadata)</li>
+      <li>AI analysis is performed in real-time; results are not persisted</li>
+    </ul>
+
+    <h2>6. Service Availability</h2>
+    <p>We strive to provide reliable service but do not guarantee uninterrupted availability. The Service is provided on an "as is" and "as available" basis. Intentify AI operates on a <strong>fail-open</strong> design — if the Service encounters an error, messages are never blocked.</p>
+
+    <h2>7. Limitation of Liability</h2>
+    <p>To the maximum extent permitted by law, Intentify AI and its operators shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of data, revenue, or business opportunities arising from your use of the Service.</p>
+    <p>The Service is a supplementary security tool and should not be relied upon as your sole data loss prevention measure.</p>
+
+    <h2>8. Intellectual Property</h2>
+    <p>The Service, including its code, design, and documentation, is the intellectual property of Intentify AI. You are granted a limited, non-exclusive, non-transferable license to use the Service in accordance with these terms.</p>
+
+    <h2>9. Termination</h2>
+    <ul>
+      <li>You may stop using the Service at any time by uninstalling it from your Slack workspace</li>
+      <li>We may suspend or terminate access to the Service if these terms are violated</li>
+      <li>Upon termination, stored metadata will be deleted according to your configured retention period, or upon request</li>
+    </ul>
+
+    <h2>10. Changes to Terms</h2>
+    <p>We may update these terms from time to time. Material changes will be communicated through the admin dashboard or email. Continued use of the Service after changes constitutes acceptance of the updated terms.</p>
+
+    <h2>11. Governing Law</h2>
+    <p>These terms are governed by the laws of the State of Israel, without regard to conflict of law principles.</p>
+
+    <h2>12. Contact</h2>
+    <p>For questions about these terms:</p>
+    <div class="card">
+      <p>Email: <a href="mailto:legal@intentify.tech">legal@intentify.tech</a></p>
+    </div>
+  </div>
+</body>
+</html>`);
+});
+
 module.exports = router;
