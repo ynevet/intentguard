@@ -12,35 +12,56 @@ function buildNav(activePage, session) {
     return `<a href="${href}" style="color:${color};text-decoration:none;font-size:14px;${weight}">${label}</a>`;
   };
 
-  // Integrations breadcrumb: "Integrations / Slack" when on a sub-page
-  let integrationsHtml;
-  if (activePage === 'integrations-slack') {
-    integrationsHtml = `<span style="display:inline-flex;align-items:center;">
-      <a href="/admin/integrations" style="color:#8b949e;text-decoration:none;font-size:14px;">Integrations</a>
-      <span style="color:#484f58;margin:0 6px;">/</span>
-      <a href="/admin/integrations/slack" style="color:#58a6ff;text-decoration:none;font-size:14px;font-weight:600;">Slack</a>
-    </span>`;
-  } else {
-    integrationsHtml = link('/admin/integrations', 'Integrations', 'integrations');
+  const isAuthenticated = !!session;
+
+  // Public links — always visible
+  const publicLinks = `
+  ${link('/features', 'Features', 'features')}
+  ${link('/about', 'About', 'about')}`;
+
+  // Authenticated-only links
+  let authLinks = '';
+  if (isAuthenticated) {
+    // Integrations breadcrumb: "Integrations / Slack" when on a sub-page
+    let integrationsHtml;
+    if (activePage === 'integrations-slack') {
+      integrationsHtml = `<span style="display:inline-flex;align-items:center;">
+        <a href="/admin/integrations" style="color:#8b949e;text-decoration:none;font-size:14px;">Integrations</a>
+        <span style="color:#484f58;margin:0 6px;">/</span>
+        <a href="/admin/integrations/slack" style="color:#58a6ff;text-decoration:none;font-size:14px;font-weight:600;">Slack</a>
+      </span>`;
+    } else {
+      integrationsHtml = link('/admin/integrations', 'Integrations', 'integrations');
+    }
+
+    authLinks = `
+    ${link('/admin/evaluations', 'Evaluations', 'admin')}
+    ${link('/admin/stats', 'Stats', 'stats')}
+    ${link('/admin/analytics', 'Analytics', 'analytics')}
+    ${integrationsHtml}`;
   }
 
   const teamBadge = session?.teamName
     ? `<span style="color:#8b949e;font-size:12px;background:#21262d;padding:3px 10px;border-radius:4px;margin-left:auto;">${escapeHtml(session.teamName)}</span>`
     : '';
 
-  const logoutMargin = teamBadge ? '' : 'margin-left:auto;';
+  // Right-aligned section: team badge + logout (auth) or "Add to Slack" CTA (public)
+  let rightSection;
+  if (isAuthenticated) {
+    const logoutMargin = teamBadge ? '' : 'margin-left:auto;';
+    rightSection = `${teamBadge}
+    <a href="/admin/login/logout" style="color:#8b949e;text-decoration:none;font-size:13px;${logoutMargin}">Logout</a>`;
+  } else {
+    rightSection = `<a href="/slack/oauth/install" style="margin-left:auto;display:inline-block;padding:6px 16px;background:#1f6feb;color:#fff;font-size:13px;font-weight:600;border-radius:6px;text-decoration:none;transition:background 0.2s;">Add to Slack</a>`;
+  }
 
   return `<nav style="background:#161b22;border-bottom:1px solid #21262d;padding:12px 24px;display:flex;align-items:center;gap:20px;">
   <a href="/" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:#e6edf3;font-weight:700;font-size:16px;">
     <img src="/public/logo.png" alt="Intentify AI" style="height:28px;width:28px;">Intentify AI
   </a>
-  ${link('/features', 'Features', 'features')}
-  ${link('/about', 'About', 'about')}
-  ${link('/admin/evaluations', 'Evaluations', 'admin')}
-  ${link('/admin/stats', 'Stats', 'stats')}
-  ${integrationsHtml}
-  ${teamBadge}
-  <a href="/admin/login/logout" style="color:#8b949e;text-decoration:none;font-size:13px;${logoutMargin}">Logout</a>
+  ${publicLinks}
+  ${authLinks}
+  ${rightSection}
 </nav>`;
 }
 

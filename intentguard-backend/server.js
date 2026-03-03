@@ -5,7 +5,7 @@ const cookieParser = require('cookie-parser');
 const logger = require('./lib/logger');
 const { initDb, runRetentionCleanup, cleanupExpiredResendContexts, getAllActiveWorkspaces } = require('./lib/db');
 const { buildNav } = require('./lib/nav');
-const { requireAuth } = require('./lib/auth');
+const { requireAuth, parseSession, COOKIE_NAME } = require('./lib/auth');
 const slackRouter = require('./routes/slack');
 const slackOAuthRouter = require('./routes/slack-oauth');
 const adminRouter = require('./routes/admin');
@@ -18,6 +18,8 @@ const statsRouter = require('./routes/admin-stats');
 const legalRouter = require('./routes/legal');
 const { rollupMonthlySummary } = require('./lib/rollup');
 const { joinAllPublicChannels } = require('./lib/channel-join');
+const { trackPageView, cleanupOldPageViews } = require('./lib/analytics');
+const analyticsRouter = require('./routes/admin-analytics');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -26,6 +28,9 @@ const PORT = Number(process.env.PORT) || 3000;
 app.use(cookieParser());
 
 app.use('/public', express.static(path.join(__dirname, 'public')));
+
+// Page view analytics — after cookieParser, before routes
+app.use(trackPageView);
 
 // SEO: robots.txt, sitemap.xml, llms.txt
 app.get('/robots.txt', (req, res) => {
@@ -44,6 +49,8 @@ app.get('/sitemap.xml', (req, res) => {
   <url><loc>https://intentify.tech/about</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://intentify.tech/support</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://intentify.tech/privacy</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://intentify.tech/terms</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://intentify.tech/sub-processors</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.3</priority></url>
 </urlset>
 `);
 });
@@ -61,6 +68,8 @@ Three-axis verification: Intent vs Content vs Context.
 - Install: https://intentify.tech/slack/oauth/install
 - Privacy: https://intentify.tech/privacy
 - Support: https://intentify.tech/support
+- Terms of Service: https://intentify.tech/terms
+- Sub-processors: https://intentify.tech/sub-processors
 `);
 });
 
@@ -79,10 +88,22 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 // Protected routes (require auth)
 app.use('/admin/integrations/slack', requireAuth, integrationsSlackRouter);
 app.use('/admin/integrations', requireAuth, integrationsRouter);
+app.use('/admin/analytics', requireAuth, analyticsRouter);
 app.use('/admin/stats', requireAuth, statsRouter);
 app.use('/admin', requireAuth, adminRouter);
 
-app.get('/', requireAuth, (req, res) => {
+// Redirect unauthenticated visitors to /features; authenticated users get admin hub
+app.get('/', (req, res, next) => {
+  const session = parseSession(req.cookies?.[COOKIE_NAME]);
+  if (!session) {
+    // Also allow through if auth is entirely disabled (local dev)
+    const adminSecret = process.env.ADMIN_SECRET;
+    const slackClientId = process.env.SLACK_CLIENT_ID;
+    if (!adminSecret && !slackClientId) return next();
+    return res.redirect('/features');
+  }
+  next();
+}, requireAuth, (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -226,6 +247,12 @@ initDb()
     setInterval(() => {
       forEachWorkspace('Auto-join channels', joinAllPublicChannels);
     }, 5 * 60 * 1000);
+
+    // Cleanup old page views (90 days) on startup, then every 24 hours
+    cleanupOldPageViews().catch((err) => logger.error({ err }, 'Page view cleanup failed'));
+    setInterval(() => {
+      cleanupOldPageViews().catch((err) => logger.error({ err }, 'Page view cleanup failed'));
+    }, 24 * 60 * 60 * 1000);
 
     // Keep Supabase free-tier project alive (pauses after 7 days of inactivity)
     setInterval(async () => {

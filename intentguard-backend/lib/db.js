@@ -272,6 +272,30 @@ async function initDb() {
         ON CONFLICT (workspace_id, key) DO NOTHING;
     `);
 
+    // ── Page views table (lightweight analytics) ──
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS page_views (
+        id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        visitor_id    TEXT NOT NULL,
+        ip_hash       TEXT NOT NULL,
+        path          TEXT NOT NULL,
+        referrer      TEXT,
+        referrer_host TEXT,
+        utm_source    TEXT,
+        utm_medium    TEXT,
+        utm_campaign  TEXT,
+        device_type   TEXT,
+        browser       TEXT,
+        os            TEXT,
+        country       TEXT,
+        session_id    TEXT,
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_page_views_created ON page_views(created_at);
+      CREATE INDEX IF NOT EXISTS idx_page_views_path ON page_views(path, created_at);
+      CREATE INDEX IF NOT EXISTS idx_page_views_visitor ON page_views(visitor_id, created_at);
+    `);
+
     // ── Leads table (global, pre-install) ──
     await client.query(`
       CREATE TABLE IF NOT EXISTS leads (
