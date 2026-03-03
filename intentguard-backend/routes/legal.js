@@ -241,4 +241,82 @@ router.get('/terms', (req, res) => {
 </html>`);
 });
 
+router.get('/sub-processors', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  ${buildHead({
+    title: 'Intentify AI — Sub-processors',
+    description: 'List of sub-processors that Intentify AI uses to deliver its service. Updated regularly for transparency.',
+    path: '/sub-processors',
+  })}
+  <style>
+    ${PAGE_STYLE}
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid #21262d; font-size: 14px; }
+    th { color: #8b949e; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+    td { color: #c9d1d9; }
+  </style>
+</head>
+<body>
+  ${buildNav('')}
+  <div class="content">
+    <h1>Sub-processors</h1>
+    <p class="meta">Last updated: March 3, 2026</p>
+
+    <p>Intentify AI uses the following third-party sub-processors to deliver its service. We evaluate each sub-processor for security and privacy practices before engagement.</p>
+
+    <h2>Current Sub-processors</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Sub-processor</th>
+          <th>Purpose</th>
+          <th>Data processed</th>
+          <th>Location</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>OpenAI</strong></td>
+          <td>AI-powered file content analysis (GPT-4o-mini)</td>
+          <td>Message text and file contents sent via API for real-time inference. Not used to train models. No data retained by Intentify AI after the API call.</td>
+          <td>United States</td>
+        </tr>
+        <tr>
+          <td><strong>Supabase (AWS)</strong></td>
+          <td>Managed PostgreSQL database hosting</td>
+          <td>Privacy-safe metadata only: SHA-256 hashes, classification labels, Slack IDs, file metadata. No message text, file contents, or AI reasoning stored.</td>
+          <td>US East (Virginia)</td>
+        </tr>
+        <tr>
+          <td><strong>Slack (Salesforce)</strong></td>
+          <td>Workspace integration platform</td>
+          <td>OAuth tokens, workspace metadata, message events via Events API. Intentify AI accesses Slack data through authorized API scopes only.</td>
+          <td>United States</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Data Processing Principles</h2>
+    <ul>
+      <li><strong>Zero content retention:</strong> Message text and file contents are processed in memory only and are never persisted to our database</li>
+      <li><strong>Minimal data sharing:</strong> Sub-processors receive only the data strictly necessary to perform their function</li>
+      <li><strong>No secondary use:</strong> Customer data is never sold, shared for advertising, or used for model training</li>
+      <li><strong>API-only access:</strong> All sub-processor interactions occur through secured APIs with encryption in transit (TLS 1.2+)</li>
+    </ul>
+
+    <h2>Changes to Sub-processors</h2>
+    <p>We will update this page when sub-processors are added or removed. Material changes will be communicated to workspace administrators through the admin dashboard or email. If you have concerns about a sub-processor, contact us at the address below.</p>
+
+    <h2>Contact</h2>
+    <p>For questions about our sub-processors or data processing:</p>
+    <div class="card">
+      <p>Email: <a href="mailto:privacy@intentify.tech">privacy@intentify.tech</a></p>
+    </div>
+  </div>
+</body>
+</html>`);
+});
+
 module.exports = router;
