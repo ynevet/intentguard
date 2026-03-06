@@ -24,6 +24,11 @@ const analyticsRouter = require('./routes/admin-analytics');
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+// Trust Railway / reverse-proxy headers so req.ip reflects the real client IP.
+// Railway terminates TLS and adds X-Forwarded-For; without this, req.ip is the
+// internal proxy address, breaking rate limiting, geo-IP, and analytics.
+app.set('trust proxy', 1);
+
 // Cookie parser — needed for auth session cookies
 app.use(cookieParser());
 

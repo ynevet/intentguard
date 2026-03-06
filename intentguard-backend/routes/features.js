@@ -543,7 +543,7 @@ router.get('/', (req, res) => {
 });
 
 router.post('/contact', express.urlencoded({ extended: false }), async (req, res) => {
-  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress || 'unknown';
 
   // Rate limiting
   const now = Date.now();
