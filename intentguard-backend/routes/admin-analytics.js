@@ -84,6 +84,11 @@ router.get('/', async (req, res) => {
       deviceTypes,
       countries,
       dailyViews,
+      // ── Customer / Potential user insight queries ──
+      leadsResult,
+      installsResult,
+      installPageVisitors,
+      highIntentVisitors,
     ] = await Promise.all([
       // ── Headline stats (exclude bots) ──
       pool.query(`
@@ -188,6 +193,45 @@ router.get('/', async (req, res) => {
         WHERE created_at >= $1 AND device_type != 'bot'
         GROUP BY day ORDER BY day ASC
       `, [monthStart]),
+
+      // ── Leads: recent contact form submissions (all time, limit 20) ──
+      pool.query(`
+        SELECT name, email, company, message, source, created_at
+        FROM leads
+        ORDER BY created_at DESC
+        LIMIT 20
+      `),
+
+      // ── Installs: all workspaces from OAuth (excluding 'default') ──
+      pool.query(`
+        SELECT id, team_name, status, installed_at,
+               (SELECT COUNT(*) FROM evaluations WHERE workspace_id = workspaces.id) AS eval_count
+        FROM workspaces
+        WHERE id != 'default'
+        ORDER BY installed_at DESC NULLS LAST
+        LIMIT 50
+      `),
+
+      // ── Install page visitors: who hit /slack/oauth/install (high intent, all time) ──
+      pool.query(`
+        SELECT
+          COUNT(*) AS total_install_page_views,
+          COUNT(DISTINCT visitor_id) AS unique_install_visitors,
+          COUNT(DISTINCT session_id) AS install_sessions,
+          COUNT(DISTINCT visitor_id) FILTER (WHERE created_at >= $1) AS install_visitors_this_month
+        FROM page_views
+        WHERE path = '/slack/oauth/install' AND device_type != 'bot'
+      `, [monthStart]),
+
+      // ── High-intent: visitors who hit install page, grouped by referrer channel ──
+      pool.query(`
+        SELECT referrer_host, country, COUNT(*) AS cnt, COUNT(DISTINCT visitor_id) AS unique_visitors
+        FROM page_views
+        WHERE path = '/slack/oauth/install' AND device_type != 'bot'
+        GROUP BY referrer_host, country
+        ORDER BY cnt DESC
+        LIMIT 15
+      `),
     ]);
 
     // ── Computed stats ──
@@ -205,6 +249,18 @@ router.get('/', async (req, res) => {
     const nvr = newVsReturningResult.rows[0];
     const newVisitors = parseInt(nvr?.new_visitors, 10) || 0;
     const returningVisitors = parseInt(nvr?.returning_visitors, 10) || 0;
+
+    // ── Customer insight stats ──
+    const totalLeads = leadsResult.rows.length;
+    const totalInstalls = installsResult.rows.filter(r => r.status === 'active').length;
+    const totalInstalledEver = installsResult.rows.length;
+
+    const ipv = installPageVisitors.rows[0];
+    const installPageViews = parseInt(ipv?.total_install_page_views, 10) || 0;
+    const uniqueInstallVisitors = parseInt(ipv?.unique_install_visitors, 10) || 0;
+    const conversionRate = uniqueInstallVisitors > 0
+      ? ((totalInstalledEver / uniqueInstallVisitors) * 100).toFixed(1)
+      : '—';
 
     // ── Categorize traffic sources ──
     const channelMap = new Map(); // label → count
@@ -339,6 +395,26 @@ router.get('/', async (req, res) => {
     .nvr-item { flex: 1; text-align: center; background: #0d1117; border-radius: 6px; padding: 12px; }
     .nvr-item .nvr-val { font-size: 22px; font-weight: 700; }
     .nvr-item .nvr-lbl { font-size: 12px; color: #768390; margin-top: 4px; }
+
+    /* Customer insights */
+    .leads-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .leads-table th { text-align: left; color: #768390; font-weight: 500; padding: 6px 10px; border-bottom: 1px solid #21262d; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .leads-table td { padding: 8px 10px; border-bottom: 1px solid #161b22; vertical-align: top; }
+    .leads-table tr:last-child td { border-bottom: none; }
+    .leads-table .email-cell { color: #58a6ff; }
+    .leads-table .company-cell { color: #8b949e; }
+    .leads-table .msg-cell { color: #8b949e; font-style: italic; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .leads-table .date-cell { color: #484f58; white-space: nowrap; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-active { background: rgba(63,185,80,0.15); color: #3fb950; border: 1px solid rgba(63,185,80,0.3); }
+    .badge-inactive { background: rgba(248,81,73,0.1); color: #f85149; border: 1px solid rgba(248,81,73,0.2); }
+    .funnel { display: flex; align-items: center; gap: 0; margin-bottom: 20px; }
+    .funnel-step { flex: 1; text-align: center; padding: 16px 8px; background: #0d1117; border: 1px solid #21262d; }
+    .funnel-step:first-child { border-radius: 8px 0 0 8px; }
+    .funnel-step:last-child { border-radius: 0 8px 8px 0; }
+    .funnel-step .f-val { font-size: 22px; font-weight: 700; }
+    .funnel-step .f-lbl { font-size: 11px; color: #768390; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .funnel-arrow { color: #484f58; padding: 0 4px; font-size: 18px; }
   </style>
 </head>
 <body>
@@ -378,6 +454,16 @@ router.get('/', async (req, res) => {
         <div class="label">Top Source</div>
         <div class="value" style="font-size:16px;margin-top:4px;">${esc(topReferrer)}</div>
         <div class="sub">Most common referrer</div>
+      </div>
+      <div class="stat-card" style="border-color:#1f6feb33;">
+        <div class="label">Active Installs</div>
+        <div class="value" style="color:#3fb950;">${totalInstalls.toLocaleString()}</div>
+        <div class="sub">${totalInstalledEver > totalInstalls ? `${totalInstalledEver} total ever` : 'All time'}</div>
+      </div>
+      <div class="stat-card" style="border-color:#1f6feb33;">
+        <div class="label">Leads</div>
+        <div class="value" style="color:#58a6ff;">${totalLeads.toLocaleString()}</div>
+        <div class="sub">Contact form submissions</div>
       </div>
     </div>
 
@@ -445,6 +531,136 @@ router.get('/', async (req, res) => {
           </div>
         </div>` : ''}
       </div>
+    </div>
+
+    <div class="section-title">Customer Insights</div>
+
+    <!-- Conversion funnel -->
+    <div class="full-panel" style="margin-bottom:16px;">
+      <h2>Acquisition Funnel <span style="font-size:12px;color:#768390;font-weight:normal;">(install page &amp; installs are all-time)</span></h2>
+      <div class="funnel">
+        <div class="funnel-step">
+          <div class="f-val">${uniqueVisitors.toLocaleString()}</div>
+          <div class="f-lbl">Visitors (this month)</div>
+        </div>
+        <div class="funnel-arrow">›</div>
+        <div class="funnel-step">
+          <div class="f-val" style="color:#d29922;">${uniqueInstallVisitors.toLocaleString()}</div>
+          <div class="f-lbl">Visited Install Page</div>
+        </div>
+        <div class="funnel-arrow">›</div>
+        <div class="funnel-step">
+          <div class="f-val" style="color:#58a6ff;">${totalLeads.toLocaleString()}</div>
+          <div class="f-lbl">Leads (contact form)</div>
+        </div>
+        <div class="funnel-arrow">›</div>
+        <div class="funnel-step">
+          <div class="f-val" style="color:#3fb950;">${totalInstalledEver.toLocaleString()}</div>
+          <div class="f-lbl">Slack Installs</div>
+        </div>
+        <div class="funnel-arrow">›</div>
+        <div class="funnel-step">
+          <div class="f-val" style="color:#3fb950;">${totalInstalls.toLocaleString()}</div>
+          <div class="f-lbl">Active Workspaces</div>
+        </div>
+      </div>
+      <div style="font-size:13px;color:#768390;">
+        Visitor-to-install rate: <strong style="color:${parseFloat(conversionRate) > 5 ? '#3fb950' : '#d29922'};">${conversionRate}${conversionRate !== '—' ? '%' : ''}</strong>
+        &nbsp;&middot;&nbsp;
+        ${installPageViews.toLocaleString()} install page views total
+      </div>
+    </div>
+
+    <div class="panels">
+      <!-- Install page traffic sources -->
+      <div class="panel">
+        <h2>Install Page — Traffic Sources <span style="font-size:12px;color:#768390;font-weight:normal;">(high-intent)</span></h2>
+        ${highIntentVisitors.rows.length === 0
+          ? '<div style="color:#768390;font-size:14px;">No install page visits yet</div>'
+          : (() => {
+              const maxCnt = Math.max(...highIntentVisitors.rows.map(r => parseInt(r.cnt, 10)), 1);
+              return highIntentVisitors.rows.map(r => {
+                const label = r.referrer_host
+                  ? (classifyReferrer(r.referrer_host) || `🌐 ${r.referrer_host}`)
+                  : '⬆️ Direct';
+                const geo = r.country ? ` <span style="color:#484f58;font-size:11px;">${countryLabel(r.country)}</span>` : '';
+                const cnt = parseInt(r.cnt, 10);
+                const uniq = parseInt(r.unique_visitors, 10);
+                const pct = Math.round((cnt / maxCnt) * 100);
+                return `<div class="bar-row">
+                  <div class="bar-label" style="min-width:160px;">${esc(label)}${geo}</div>
+                  <div class="bar-track"><div class="bar-fill" style="background:#d29922;width:${pct}%;"></div></div>
+                  <div class="bar-count">${uniq} <span style="color:#484f58;font-size:11px;">/ ${cnt} views</span></div>
+                </div>`;
+              }).join('');
+            })()
+        }
+      </div>
+
+      <!-- Slack Installs -->
+      <div class="panel">
+        <h2>Slack Workspaces</h2>
+        ${installsResult.rows.length === 0
+          ? '<div style="color:#768390;font-size:14px;">No OAuth installs yet</div>'
+          : `<table class="leads-table">
+              <thead><tr>
+                <th>Workspace</th>
+                <th>Status</th>
+                <th>Scans</th>
+                <th>Installed</th>
+              </tr></thead>
+              <tbody>
+                ${installsResult.rows.map(r => {
+                  const teamName = r.team_name || r.id;
+                  const isActive = r.status === 'active';
+                  const installedAt = r.installed_at
+                    ? new Date(r.installed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : '—';
+                  const evalCnt = parseInt(r.eval_count, 10) || 0;
+                  return `<tr>
+                    <td>${esc(teamName)}</td>
+                    <td><span class="badge ${isActive ? 'badge-active' : 'badge-inactive'}">${isActive ? 'Active' : 'Inactive'}</span></td>
+                    <td style="text-align:right;">${evalCnt.toLocaleString()}</td>
+                    <td class="date-cell">${installedAt}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>`
+        }
+      </div>
+    </div>
+
+    <!-- Leads table -->
+    <div class="full-panel" style="margin-bottom:32px;">
+      <h2>Contact Form Leads <span style="font-size:12px;color:#768390;font-weight:normal;">(${totalLeads} total)</span></h2>
+      ${leadsResult.rows.length === 0
+        ? '<div style="color:#768390;font-size:14px;">No leads yet — submissions from the /features contact form appear here.</div>'
+        : `<div style="overflow-x:auto;">
+            <table class="leads-table">
+              <thead><tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Company</th>
+                <th>Message</th>
+                <th>Source</th>
+                <th>Date</th>
+              </tr></thead>
+              <tbody>
+                ${leadsResult.rows.map(r => {
+                  const d = new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                  return `<tr>
+                    <td>${esc(r.name)}</td>
+                    <td class="email-cell"><a href="mailto:${esc(r.email)}" style="color:#58a6ff;text-decoration:none;">${esc(r.email)}</a></td>
+                    <td class="company-cell">${esc(r.company || '—')}</td>
+                    <td class="msg-cell" title="${esc(r.message || '')}">${esc(r.message || '—')}</td>
+                    <td style="color:#8b949e;font-size:12px;">${esc(r.source || 'features')}</td>
+                    <td class="date-cell">${d}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>`
+      }
     </div>
 
     <div class="section-title">Audience</div>
