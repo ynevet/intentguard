@@ -70,6 +70,7 @@ router.get('/', async (req, res) => {
   try {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    const isSuperAdmin = req.workspaceId === 'default';
 
     // Run all queries in parallel
     const [
@@ -84,7 +85,7 @@ router.get('/', async (req, res) => {
       deviceTypes,
       countries,
       dailyViews,
-      // ── Customer / Potential user insight queries ──
+      // ── Customer insight queries — super-admin only ──
       leadsResult,
       installsResult,
       installPageVisitors,
@@ -194,44 +195,52 @@ router.get('/', async (req, res) => {
         GROUP BY day ORDER BY day ASC
       `, [monthStart]),
 
-      // ── Leads: recent contact form submissions (all time, limit 20) ──
-      pool.query(`
-        SELECT name, email, company, message, source, created_at
-        FROM leads
-        ORDER BY created_at DESC
-        LIMIT 20
-      `),
+      // ── Leads: super-admin only ──
+      isSuperAdmin
+        ? pool.query(`
+            SELECT name, email, company, message, source, created_at
+            FROM leads
+            ORDER BY created_at DESC
+            LIMIT 20
+          `)
+        : Promise.resolve({ rows: [] }),
 
-      // ── Installs: all workspaces from OAuth (excluding 'default') ──
-      pool.query(`
-        SELECT id, team_name, status, installed_at,
-               (SELECT COUNT(*) FROM evaluations WHERE workspace_id = workspaces.id) AS eval_count
-        FROM workspaces
-        WHERE id != 'default'
-        ORDER BY installed_at DESC NULLS LAST
-        LIMIT 50
-      `),
+      // ── Installs: super-admin only ──
+      isSuperAdmin
+        ? pool.query(`
+            SELECT id, team_name, status, installed_at,
+                   (SELECT COUNT(*) FROM evaluations WHERE workspace_id = workspaces.id) AS eval_count
+            FROM workspaces
+            WHERE id != 'default'
+            ORDER BY installed_at DESC NULLS LAST
+            LIMIT 50
+          `)
+        : Promise.resolve({ rows: [] }),
 
-      // ── Install page visitors: who hit /slack/oauth/install (high intent, all time) ──
-      pool.query(`
-        SELECT
-          COUNT(*) AS total_install_page_views,
-          COUNT(DISTINCT visitor_id) AS unique_install_visitors,
-          COUNT(DISTINCT session_id) AS install_sessions,
-          COUNT(DISTINCT visitor_id) FILTER (WHERE created_at >= $1) AS install_visitors_this_month
-        FROM page_views
-        WHERE path = '/slack/oauth/install' AND device_type != 'bot'
-      `, [monthStart]),
+      // ── Install page visitors: super-admin only ──
+      isSuperAdmin
+        ? pool.query(`
+            SELECT
+              COUNT(*) AS total_install_page_views,
+              COUNT(DISTINCT visitor_id) AS unique_install_visitors,
+              COUNT(DISTINCT session_id) AS install_sessions,
+              COUNT(DISTINCT visitor_id) FILTER (WHERE created_at >= $1) AS install_visitors_this_month
+            FROM page_views
+            WHERE path = '/slack/oauth/install' AND device_type != 'bot'
+          `, [monthStart])
+        : Promise.resolve({ rows: [{}] }),
 
-      // ── High-intent: visitors who hit install page, grouped by referrer channel ──
-      pool.query(`
-        SELECT referrer_host, country, COUNT(*) AS cnt, COUNT(DISTINCT visitor_id) AS unique_visitors
-        FROM page_views
-        WHERE path = '/slack/oauth/install' AND device_type != 'bot'
-        GROUP BY referrer_host, country
-        ORDER BY cnt DESC
-        LIMIT 15
-      `),
+      // ── High-intent install page traffic: super-admin only ──
+      isSuperAdmin
+        ? pool.query(`
+            SELECT referrer_host, country, COUNT(*) AS cnt, COUNT(DISTINCT visitor_id) AS unique_visitors
+            FROM page_views
+            WHERE path = '/slack/oauth/install' AND device_type != 'bot'
+            GROUP BY referrer_host, country
+            ORDER BY cnt DESC
+            LIMIT 15
+          `)
+        : Promise.resolve({ rows: [] }),
     ]);
 
     // ── Computed stats ──
@@ -455,6 +464,7 @@ router.get('/', async (req, res) => {
         <div class="value" style="font-size:16px;margin-top:4px;">${esc(topReferrer)}</div>
         <div class="sub">Most common referrer</div>
       </div>
+      ${isSuperAdmin ? `
       <div class="stat-card" style="border-color:#1f6feb33;">
         <div class="label">Active Installs</div>
         <div class="value" style="color:#3fb950;">${totalInstalls.toLocaleString()}</div>
@@ -464,7 +474,7 @@ router.get('/', async (req, res) => {
         <div class="label">Leads</div>
         <div class="value" style="color:#58a6ff;">${totalLeads.toLocaleString()}</div>
         <div class="sub">Contact form submissions</div>
-      </div>
+      </div>` : ''}
     </div>
 
     <div class="section-title">Traffic Over Time</div>
@@ -533,6 +543,7 @@ router.get('/', async (req, res) => {
       </div>
     </div>
 
+    ${isSuperAdmin ? `
     <div class="section-title">Customer Insights</div>
 
     <!-- Conversion funnel -->
@@ -662,6 +673,7 @@ router.get('/', async (req, res) => {
           </div>`
       }
     </div>
+    ` : ''}
 
     <div class="section-title">Audience</div>
     <div class="panels">
