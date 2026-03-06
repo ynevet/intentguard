@@ -51,7 +51,10 @@ async function joinAllPublicChannels(workspaceId = 'default') {
 
   const client = await getSlackClient(workspaceId);
   if (!client) {
-    logger.warn({ workspaceId }, 'No Slack client available, skipping auto-join sweep');
+    // 'default' workspace has no token in OAuth-mode deployments — expected, not an error
+    if (workspaceId !== 'default') {
+      logger.warn({ workspaceId }, 'No Slack client available, skipping auto-join sweep');
+    }
     return counts;
   }
 

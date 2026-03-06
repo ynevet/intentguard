@@ -26,7 +26,10 @@ async function getSlackClient(workspaceId = 'default') {
   }
 
   if (!token) {
-    logger.warn({ workspaceId }, 'No bot token available for workspace');
+    // 'default' workspace has no token in OAuth-mode deployments — expected, not an error
+    if (workspaceId !== 'default') {
+      logger.warn({ workspaceId }, 'No bot token available for workspace');
+    }
     return null;
   }
 
