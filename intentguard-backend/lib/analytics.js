@@ -163,22 +163,21 @@ async function savePageView(data) {
 // ── Express middleware ────────────────────────────────────────────────
 
 function trackPageView(req, res, next) {
+  if (req.method === 'GET' && TRACKED_PATHS.has(req.path)) {
+    const data = extractPageViewData(req);
+
+    // Set/refresh session cookie (30 min rolling) before next() so headers aren't sent yet
+    res.cookie('ig_vid', data.sessionId, {
+      maxAge: 30 * 60 * 1000,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: isProduction,
+    });
+
+    savePageView(data);
+  }
+
   next();
-
-  if (req.method !== 'GET') return;
-  if (!TRACKED_PATHS.has(req.path)) return;
-
-  const data = extractPageViewData(req);
-
-  // Set/refresh session cookie (30 min rolling)
-  res.cookie('ig_vid', data.sessionId, {
-    maxAge: 30 * 60 * 1000,
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: isProduction,
-  });
-
-  savePageView(data);
 }
 
 // ── Retention cleanup (90 days) ──────────────────────────────────────
