@@ -9,6 +9,23 @@ const { joinChannel } = require('../lib/channel-join');
 
 const router = express.Router();
 
+// Short-lived dedup cache: prevents double-analysis when Slack fires both a
+// `message` event and a `file_shared` event for the same upload.
+// Key: `${channel}:${ts}`, TTL: 30 seconds.
+const _processedMsgTs = new Map();
+function markProcessed(channel, ts) {
+  const key = `${channel}:${ts}`;
+  _processedMsgTs.set(key, Date.now());
+  // Evict entries older than 30s on each write (low-frequency, no setInterval needed)
+  const cutoff = Date.now() - 30_000;
+  for (const [k, t] of _processedMsgTs) {
+    if (t < cutoff) _processedMsgTs.delete(k);
+  }
+}
+function wasProcessed(channel, ts) {
+  return _processedMsgTs.has(`${channel}:${ts}`);
+}
+
 function getRawBody(body) {
   if (Buffer.isBuffer(body)) return body.toString('utf8');
   if (typeof body === 'string') return body;
@@ -209,6 +226,9 @@ async function processEvent(payload) {
       return;
     }
 
+    // Mark this (channel, ts) as processed so file_shared doesn't double-analyze
+    markProcessed(event.channel, event.ts);
+
     // Run risk analysis on messages with text + files
     const assessment = await analyzeMessage(event, workspaceId);
     logger.info({
@@ -231,6 +251,122 @@ async function processEvent(payload) {
         f.url_private_download = null;
         f.permalink = null;
       }
+    }
+  } else if (event.type === 'file_shared') {
+    // file_shared fires when a file is uploaded to a channel.
+    // It does NOT carry message text or the full file object — we must fetch the
+    // originating message from conversations.history using the message_ts / event_ts.
+    const channelId = event.channel_id;
+    const userId    = event.user_id;
+    const fileId    = event.file_id;
+
+    if (!channelId || !userId) {
+      logger.info({ event_type: 'file_shared', fileId }, 'file_shared missing channel/user — skipping');
+      return;
+    }
+
+    // Check if analysis is enabled
+    const analysisEnabledFs = await getSetting('analysis_enabled', workspaceId);
+    if (analysisEnabledFs === 'false') {
+      logger.info({ channelId }, 'Analysis disabled, skipping file_shared');
+      return;
+    }
+
+    // Check channel monitoring / exclusion rules
+    const monitoredChannelsFs = await getSetting('slack.monitored_channels', workspaceId) || '';
+    if (monitoredChannelsFs.trim()) {
+      const channelList = monitoredChannelsFs.split(',').map((c) => c.trim()).filter(Boolean);
+      if (!channelList.includes(channelId)) {
+        logger.info({ channel: channelId }, 'Channel not monitored, skipping file_shared');
+        return;
+      }
+    }
+    const excludedChannelsFs = (await getSetting('slack.excluded_channels', workspaceId) || '')
+      .split(',').map((s) => s.trim()).filter(Boolean);
+    if (excludedChannelsFs.includes(channelId)) {
+      logger.info({ channel: channelId }, 'Channel excluded, skipping file_shared');
+      return;
+    }
+
+    // Fetch the originating message so we have text + full file metadata
+    const client = await getSlackClient(workspaceId);
+    if (!client) {
+      logger.warn({ channelId, workspaceId }, 'No Slack client for file_shared lookup');
+      return;
+    }
+
+    let syntheticEvent = null;
+    try {
+      // Use event_ts as the inclusive boundary; look back 5 messages to find the one that contains this file
+      const histResult = await client.conversations.history({
+        channel: channelId,
+        latest:  event.event_ts,
+        limit:   5,
+        inclusive: true,
+      });
+
+      const msg = (histResult.messages || []).find((m) =>
+        m.files && m.files.some((f) => f.id === fileId),
+      );
+
+      if (!msg) {
+        logger.warn({ channelId, fileId, event_ts: event.event_ts }, 'Could not find originating message for file_shared — skipping');
+        return;
+      }
+
+      // Skip thread replies and bot messages (same guards as message handler)
+      if (msg.thread_ts && msg.thread_ts !== msg.ts) {
+        logger.info({ thread_ts: msg.thread_ts, ts: msg.ts }, 'file_shared: skipping thread reply');
+        return;
+      }
+      if (msg.bot_id || msg.bot_profile) {
+        logger.info({ bot_id: msg.bot_id }, 'file_shared: skipping bot message');
+        return;
+      }
+
+      // Dedup: if the `message` event already ran analysis for this (channel, ts), skip
+      if (wasProcessed(channelId, msg.ts)) {
+        logger.info({ channel: channelId, ts: msg.ts }, 'file_shared: already analyzed via message event — skipping');
+        return;
+      }
+
+      syntheticEvent = {
+        type:    'message',
+        user:    msg.user || userId,
+        channel: channelId,
+        ts:      msg.ts,
+        text:    msg.text || '',
+        files:   msg.files || [],
+      };
+      logger.info({
+        channel: channelId,
+        ts: msg.ts,
+        fileCount: syntheticEvent.files.length,
+        hasText: !!syntheticEvent.text,
+        textLength: syntheticEvent.text.length,
+      }, 'file_shared: fetched originating message');
+    } catch (fetchErr) {
+      logger.error({ err: fetchErr, channelId, fileId }, 'file_shared: failed to fetch message history');
+      return;
+    }
+
+    const assessmentFs = await analyzeMessage(syntheticEvent, workspaceId);
+    logger.info({
+      match: assessmentFs.match,
+      confidence: assessmentFs.confidence,
+      mismatchType: assessmentFs.mismatchType,
+      intentLabel: assessmentFs.intentLabel,
+    }, 'file_shared: risk assessment result');
+
+    const evaluationIdFs = await saveEvaluation(syntheticEvent, assessmentFs, 'slack', workspaceId);
+    await reactToAssessment(syntheticEvent, assessmentFs, workspaceId, evaluationIdFs);
+
+    // In-memory cleanup
+    syntheticEvent.text = null;
+    for (const f of syntheticEvent.files) {
+      f.url_private = null;
+      f.url_private_download = null;
+      f.permalink = null;
     }
   } else if (event.type === 'channel_created') {
     const channelId = event.channel?.id;
