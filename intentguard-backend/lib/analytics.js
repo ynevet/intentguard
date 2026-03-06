@@ -1,6 +1,52 @@
 const crypto = require('crypto');
+const http = require('http');
+const https = require('https');
 const { pool } = require('./db');
 const logger = require('./logger');
+
+// ── Geo-IP lookup via ip-api.com (free, no key, 45 req/min) ──────────
+// Cache to avoid hammering the API for the same IP within 10 minutes
+const geoCache = new Map(); // ipHash → { country, cachedAt }
+const GEO_CACHE_TTL_MS = 10 * 60 * 1000;
+
+async function lookupCountry(rawIp) {
+  if (!rawIp || rawIp === '0.0.0.0' || rawIp === '::1' || rawIp === '127.0.0.1') return null;
+
+  // Only resolve in production — ip-api.com would return useless results for private IPs
+  if (process.env.NODE_ENV !== 'production') return null;
+
+  const ipHash = crypto.createHash('sha256').update(rawIp).digest('hex');
+  const cached = geoCache.get(ipHash);
+  if (cached && Date.now() - cached.cachedAt < GEO_CACHE_TTL_MS) {
+    return cached.country;
+  }
+
+  return new Promise((resolve) => {
+    const req = http.get(`http://ip-api.com/json/${encodeURIComponent(rawIp)}?fields=countryCode`, (res) => {
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(body);
+          const country = json.status === 'success' ? json.countryCode : null;
+          geoCache.set(ipHash, { country, cachedAt: Date.now() });
+          // Evict old entries periodically to prevent unbounded growth
+          if (geoCache.size > 5000) {
+            const now = Date.now();
+            for (const [k, v] of geoCache) {
+              if (now - v.cachedAt > GEO_CACHE_TTL_MS) geoCache.delete(k);
+            }
+          }
+          resolve(country);
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.setTimeout(2000, () => { req.destroy(); resolve(null); });
+  });
+}
 
 // ── Tracked public paths (allowlist) ─────────────────────────────────
 const TRACKED_PATHS = new Set([
@@ -80,7 +126,7 @@ function extractPageViewData(req) {
   const utmCampaign = req.query.utm_campaign || null;
 
   return {
-    visitorId, ipHash, path: req.path,
+    visitorId, ipHash, rawIp, path: req.path,
     referrer, referrerHost,
     utmSource, utmMedium, utmCampaign,
     deviceType, browser, os,
@@ -92,17 +138,21 @@ function extractPageViewData(req) {
 
 async function savePageView(data) {
   try {
+    // Geo-lookup is async and non-blocking — runs in parallel with the INSERT
+    const country = await lookupCountry(data.rawIp);
+
     await pool.query(
       `INSERT INTO page_views
         (visitor_id, ip_hash, path, referrer, referrer_host,
          utm_source, utm_medium, utm_campaign,
-         device_type, browser, os, session_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+         device_type, browser, os, session_id, country)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
       [
         data.visitorId, data.ipHash, data.path,
         data.referrer, data.referrerHost,
         data.utmSource, data.utmMedium, data.utmCampaign,
         data.deviceType, data.browser, data.os, data.sessionId,
+        country,
       ],
     );
   } catch (err) {
