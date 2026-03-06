@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-IntentGuard is an AI-powered DLP tool that catches the #1 blindspot: attachments that don't match what users say they are. It performs three-axis verification — **Intent** (what user claims) vs **Content** (what's actually inside) vs **Context** (channel/destination) — to catch mis-sends before they leak. Slack-first, privacy-safe, zero content retention. Early stage — no tests, no linting.
+**Intentify AI** (formerly IntentGuard) is an AI-powered DLP tool that catches the #1 blindspot: attachments that don't match what users say they are. It performs three-axis verification — **Intent** (what user claims) vs **Content** (what's actually inside) vs **Context** (channel/destination) — to catch mis-sends before they leak. Slack-first, privacy-safe, zero content retention. Early stage — no tests, no linting.
+
+The product domain is `intentify.tech`. All public-facing HTML and branding uses "Intentify AI".
 
 ## Commands
 
@@ -44,8 +46,9 @@ On mismatch DM, a `resend_contexts` row is stored (DB-backed, 24h TTL). If the u
 
 - Retention cleanup — every 6h, per-workspace (deletes evaluations older than configurable retention days)
 - Monthly rollup — every 6h, per-workspace (aggregates stats into `monthly_summaries`)
-- Auto-join channels — every 5m, per-workspace (joins all public channels)
+- Auto-join channels — every 5m, per-workspace (joins all public channels via `lib/channel-join.js`)
 - Resend context cleanup — every 30m, global (deletes expired re-send contexts)
+- Page view cleanup — daily, global (trims old rows from `page_views` via `lib/analytics.js`)
 - Supabase keep-alive — every 6h (prevents free-tier project pause)
 
 ### Admin Dashboard
@@ -56,12 +59,15 @@ Server-rendered HTML pages (dark theme, no frontend framework), **tenant-scoped*
 - `/admin/auth/callback` — Exchanges code for token, verifies workspace installed + user is admin, creates signed session
 - `/admin/evaluations` — Paginated evaluation history + workspace settings (analysis toggle, retention days)
 - `/admin/stats` — Analytics: verdicts, detection breakdown, mismatch types, risk channels/users, cost savings
+- `/admin/analytics` — Self-hosted page view analytics for public pages (page_views table)
 - `/admin/integrations` — Integration hub (Slack active; Teams/Email coming soon)
 - `/admin/integrations/slack` — Channel monitoring, alert thresholds, strict audience blocking, excluded channels. First-install onboarding panel when `?onboarding=1`
-- `/features` — Public conversion-focused landing page with problem-agitation-solution structure, blindspot comparison, real-world scenarios, how-it-works flow, comparison table vs traditional DLP, pricing section (Community free / Pro coming soon), AI transparency disclosure, and CTAs
-- `/privacy` — Public privacy policy (required for Slack marketplace)
+- `/features` — Public conversion-focused landing page
+- `/about` — Public about/mission page
+- `/privacy`, `/terms`, `/sub-processors` — Public legal pages (required for Slack marketplace)
 - `/support` — Public support/FAQ page (required for Slack marketplace)
 - `/health` — Health check endpoint
+- `/robots.txt`, `/sitemap.xml`, `/llms.txt` — SEO files served directly from `server.js`
 - `/slack/oauth/install` — Public "Add to Slack" landing page
 - `/slack/oauth/authorize` — Initiates OAuth V2 flow with CSRF state
 - `/slack/oauth/callback` — Exchanges code for tokens, stores workspace in DB
@@ -88,6 +94,7 @@ Migrations run idempotently in `initDb()`:
 - `settings` — Key-value config, composite PK `(workspace_id, key)`, `slack.*` namespaced keys
 - `workspaces` — Registry for multi-tenancy with OAuth token storage (`bot_token`, `user_token`, `bot_user_id`, `team_name`, `installed_at`)
 - `resend_contexts` — DM re-send state (replaces in-memory Map)
+- `page_views` — Self-hosted public page analytics (visitor_id, session_id, path, referrer_host, device_type, browser, os)
 
 ## Environment Variables
 

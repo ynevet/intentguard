@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-IntentGuard backend — Node.js/Express 5, CommonJS. Three-axis DLP verification (Intent vs Content vs Context) for Slack file attachments. OpenAI GPT-4o-mini for AI analysis, PostgreSQL 17 for persistence. No linting configured.
+**Intentify AI** backend — Node.js/Express 5, CommonJS. Three-axis DLP verification (Intent vs Content vs Context) for Slack file attachments. OpenAI GPT-4o-mini for AI analysis, PostgreSQL 17 for persistence. No linting configured. Domain: `intentify.tech`.
 
 ## Commands
 
@@ -22,7 +22,7 @@ Start Postgres first: `docker compose up -d` from the repo root.
 
 ### Entry Point
 
-- **`server.js`** — Mounts routers, serves `GET /health`, gates startup behind `initDb()`. Runs scheduled jobs per-workspace via `forEachWorkspace()`: retention cleanup (6h), monthly rollup (6h), auto-join channels (5m). Global jobs: resend context cleanup (30m), Supabase keep-alive (6h). Public routes: `/slack`, `/slack/oauth`, `/admin/login`, `/admin/auth`, `/features`, `/privacy`, `/support`, `/health`. Protected routes (behind `requireAuth`): `/admin/*`, `/`.
+- **`server.js`** — Mounts routers, serves `GET /health`, `/robots.txt`, `/sitemap.xml`, `/llms.txt`, gates startup behind `initDb()`. `trackPageView` middleware runs before routes. Runs scheduled jobs per-workspace: retention cleanup (6h), monthly rollup (6h), auto-join channels (5m), page view cleanup (daily). Global jobs: resend context cleanup (30m), Supabase keep-alive (6h). Public routes: `/slack`, `/slack/oauth`, `/admin/login`, `/admin/auth`, `/features`, `/about`, `/privacy`, `/terms`, `/sub-processors`, `/support`. Protected routes (behind `requireAuth`): `/admin/*`, `/admin/analytics`. Root `/` redirects unauthenticated users to `/features`.
 
 ### Routes
 
@@ -34,7 +34,9 @@ Start Postgres first: `docker compose up -d` from the repo root.
 - **`routes/admin-integrations.js`** — `GET /admin/integrations`: integration hub page. Shows DB-backed connected workspace count. "+ Add Workspace" card when `SLACK_CLIENT_ID` is set.
 - **`routes/admin-integrations-slack.js`** — `GET/POST /admin/integrations/slack`: channel monitoring, alert thresholds, strict audience blocking, excluded channels, all tenant-scoped via `req.workspaceId`. Shows connected workspaces list from DB. Handles `?installed=1` success toast and `?error=` OAuth error toast. When `?onboarding=1`, renders a first-install onboarding panel with status checklist, next-steps guidance, quick action cards (test it out, configure channels, view dashboard), and dismiss link.
 - **`routes/features.js`** — `GET /features`: public conversion-focused landing page with problem-agitation-solution structure, blindspot comparison vs traditional DLP, real-world scenarios, how-it-works flow, comparison table, pricing section (Community free / Pro coming soon), AI transparency disclosure, and CTAs.
-- **`routes/legal.js`** — `GET /privacy`: public privacy policy page. `GET /support`: public support/FAQ page. Required for Slack marketplace.
+- **`routes/about.js`** — `GET /about`: public mission/about page with three-axis explainer, differentiators, stats, and YouTube demo embed.
+- **`routes/legal.js`** — `GET /privacy`, `GET /support`, `GET /terms`, `GET /sub-processors`: public legal/support pages required for Slack marketplace.
+- **`routes/admin-analytics.js`** — `GET /admin/analytics`: self-hosted page view analytics dashboard (requires auth). Queries `page_views` table for monthly headline stats, top pages, referrers, devices, browsers.
 
 ### Core Libraries
 
@@ -62,7 +64,11 @@ Start Postgres first: `docker compose up -d` from the repo root.
 
 - **`lib/logger.js`** — Pino logger with dual transport: daily file rotation (logs/, 14-day, 20MB) + pretty console. Redacts: event.text, reasoning, file URLs, file findings.
 
-- **`lib/nav.js`** — `buildNav(activePage, session)`: shared HTML nav bar for all admin pages. Shows workspace name badge when `session.teamName` is set.
+- **`lib/nav.js`** — `buildNav(activePage, session)`: shared HTML nav bar for all pages. `buildHead({ title, description, path, type, jsonLd })`: shared `<head>` with OG tags, canonical URLs, JSON-LD. `escapeHtml(str)`: XSS-safe string escaping for server-rendered HTML.
+
+- **`lib/analytics.js`** — `trackPageView` Express middleware: records page views to `page_views` table for allowlisted public paths. Bot detection via User-Agent. `cleanupOldPageViews()` for retention.
+
+- **`lib/channel-join.js`** — `joinAllPublicChannels(workspaceId)`: auto-joins all public channels respecting per-workspace `slack.auto_join_channels` and `slack.excluded_channels` settings.
 
 ## Key Patterns
 
