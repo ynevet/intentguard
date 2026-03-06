@@ -297,52 +297,58 @@ async function processEvent(payload) {
 
     let syntheticEvent = null;
     try {
-      // Use files.info (requires only files:read, already granted) to get full file metadata.
-      // conversations.history requires channels:history which may not be granted.
-      const fileInfo = await client.files.info({ file: fileId });
-      const file = fileInfo.file;
+      // Fetch the originating message via conversations.history (requires channels:history +
+      // groups:history, now included in BOT_SCOPES). This is the only reliable way to get
+      // the message text the user typed alongside the file in modern Slack.
+      const histResult = await client.conversations.history({
+        channel:   channelId,
+        latest:    event.event_ts,
+        limit:     5,
+        inclusive: true,
+      });
 
-      if (!file) {
-        logger.warn({ fileId }, 'file_shared: files.info returned no file — skipping');
+      const msg = (histResult.messages || []).find((m) =>
+        m.files && m.files.some((f) => f.id === fileId),
+      );
+
+      if (!msg) {
+        logger.warn({ channelId, fileId, event_ts: event.event_ts }, 'file_shared: originating message not found — skipping');
         return;
       }
 
-      // files.info includes shares[public/private][channelId] with message ts
-      const shares = file.shares || {};
-      const allShares = [
-        ...Object.values(shares.public  || {}),
-        ...Object.values(shares.private || {}),
-      ].flat();
-      const share = allShares.find((s) => s.channel_id === channelId) || allShares[0];
-      const msgTs = share?.ts || event.event_ts;
+      // Skip thread replies and bot messages
+      if (msg.thread_ts && msg.thread_ts !== msg.ts) {
+        logger.info({ thread_ts: msg.thread_ts, ts: msg.ts }, 'file_shared: skipping thread reply');
+        return;
+      }
+      if (msg.bot_id || msg.bot_profile) {
+        logger.info({ bot_id: msg.bot_id }, 'file_shared: skipping bot message');
+        return;
+      }
 
       // Dedup: if the `message` event already ran analysis for this (channel, ts), skip
-      if (wasProcessed(channelId, msgTs)) {
-        logger.info({ channel: channelId, ts: msgTs }, 'file_shared: already analyzed via message event — skipping');
+      if (wasProcessed(channelId, msg.ts)) {
+        logger.info({ channel: channelId, ts: msg.ts }, 'file_shared: already analyzed via message event — skipping');
         return;
       }
 
-      // The initial_comment field holds the message text the user typed with the file
-      const messageText = file.initial_comment?.comment || share?.text || '';
-
       syntheticEvent = {
-        type:    'message',
-        user:    file.user || userId,
+        type:  'message',
+        user:  msg.user || userId,
         channel: channelId,
-        ts:      msgTs,
-        text:    messageText,
-        files:   [file],
+        ts:    msg.ts,
+        text:  msg.text || '',
+        files: msg.files || [],
       };
       logger.info({
         channel: channelId,
-        ts: msgTs,
-        fileId,
-        fileName: file.name,
-        hasText: !!messageText,
-        textLength: messageText.length,
-      }, 'file_shared: fetched file info');
+        ts: msg.ts,
+        fileCount: syntheticEvent.files.length,
+        hasText: !!syntheticEvent.text,
+        textLength: syntheticEvent.text.length,
+      }, 'file_shared: fetched originating message');
     } catch (fetchErr) {
-      logger.error({ err: fetchErr, channelId, fileId }, 'file_shared: failed to fetch file info');
+      logger.error({ err: fetchErr, channelId, fileId }, 'file_shared: failed to fetch message history');
       return;
     }
 

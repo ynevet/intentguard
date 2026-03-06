@@ -24,6 +24,8 @@ setInterval(() => {
 const BOT_SCOPES = [
   'channels:read',
   'channels:join',
+  'channels:history',
+  'groups:history',
   'chat:write',
   'reactions:write',
   'files:read',
