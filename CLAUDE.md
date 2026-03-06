@@ -8,6 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The product domain is `intentify.tech`. All public-facing HTML and branding uses "Intentify AI".
 
+## Workflow Rules
+
+- **After every `git push`**: run `railway logs 2>&1 | head -40` from `intentguard-backend/` and confirm: container started cleanly, no startup errors, background jobs running normally.
+
 ## Commands
 
 All commands run from `intentguard-backend/`:
