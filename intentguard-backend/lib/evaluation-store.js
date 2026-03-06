@@ -63,29 +63,47 @@ async function saveEvaluation(event, assessment, platform = 'slack', workspaceId
     const evaluationId = rows[0].id;
     logger.info({ evaluationId, workspaceId }, 'Evaluation persisted');
 
-    // ── Analytics: file_analyses (one row per file) ──
-    for (const safeFile of safeFiles) {
-      const fileSnap = fileSnapshots.find((f) => f.name === safeFile.name);
-      // Find pre-scan signals for this file if any
-      const preScanSignals = assessment.preScanFindings
-        ? assessment.preScanFindings.filter((f) => !f.fileName || f.fileName === safeFile.name)
-        : null;
+    // ── Analytics: file_analyses (bulk insert, one query for all files) ──
+    if (safeFiles.length > 0) {
+      // Build a lookup map for O(1) snapshot access instead of O(n) find per file
+      const snapByName = new Map(fileSnapshots.map((f) => [f.name, f]));
+
+      // Build parallel value arrays for a single multi-row INSERT
+      const evalIds = [];
+      const wsIds = [];
+      const fileNames = [];
+      const fileMimetypes = [];
+      const fileSizes = [];
+      const methods = [];
+      const classLabels = [];
+      const preScanSignalsArr = [];
+
+      for (const safeFile of safeFiles) {
+        const fileSnap = snapByName.get(safeFile.name);
+        const preScanSignals = assessment.preScanFindings
+          ? assessment.preScanFindings.filter((f) => !f.fileName || f.fileName === safeFile.name)
+          : null;
+
+        evalIds.push(evaluationId);
+        wsIds.push(workspaceId);
+        fileNames.push(safeFile.name);
+        fileMimetypes.push(fileSnap?.mimetype || null);
+        fileSizes.push(fileSnap?.size || 0);
+        methods.push(safeFile.method);
+        classLabels.push(safeFile.classificationLabel);
+        preScanSignalsArr.push(
+          preScanSignals && preScanSignals.length > 0 ? JSON.stringify(preScanSignals) : null,
+        );
+      }
 
       await pool.query(
         `INSERT INTO file_analyses
           (evaluation_id, workspace_id, file_name, file_mimetype, file_size,
            analysis_method, classification_label, pre_scan_signals)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [
-          evaluationId,
-          workspaceId,
-          safeFile.name,
-          fileSnap?.mimetype || null,
-          fileSnap?.size || 0,
-          safeFile.method,
-          safeFile.classificationLabel,
-          preScanSignals && preScanSignals.length > 0 ? JSON.stringify(preScanSignals) : null,
-        ],
+         SELECT * FROM UNNEST($1::bigint[], $2::text[], $3::text[], $4::text[], $5::bigint[],
+                              $6::text[], $7::text[], $8::text[])
+         ON CONFLICT (evaluation_id, file_name) DO NOTHING`,
+        [evalIds, wsIds, fileNames, fileMimetypes, fileSizes, methods, classLabels, preScanSignalsArr],
       );
     }
 

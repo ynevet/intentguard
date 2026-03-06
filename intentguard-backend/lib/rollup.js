@@ -110,6 +110,8 @@ async function rollupMonthlySummary(workspaceId = 'default') {
     }
 
     // Upsert monthly summary
+    const totalFiles = parseInt(fileStats.rows[0]?.total_files, 10) || 0;
+
     await client.query(`
       INSERT INTO monthly_summaries
         (workspace_id, month, total_scans, total_files, matches, mismatches, uncertain,
@@ -132,7 +134,7 @@ async function rollupMonthlySummary(workspaceId = 'default') {
     `, [
       workspaceId, monthStr,
       parseInt(stats.total_scans, 10) || 0,
-      parseInt(fileStats.rows[0].total_files, 10) || 0,
+      totalFiles,
       parseInt(stats.matches, 10) || 0,
       parseInt(stats.mismatches, 10) || 0,
       parseInt(stats.uncertain, 10) || 0,
@@ -154,6 +156,7 @@ async function rollupMonthlySummary(workspaceId = 'default') {
     }, 'Monthly summary rollup completed');
   } catch (err) {
     logger.error({ err, workspaceId }, 'Monthly summary rollup failed');
+    try { await client.query('ROLLBACK'); } catch { /* ignore rollback errors */ }
   } finally {
     client.release();
   }

@@ -85,16 +85,28 @@ router.get('/evaluations', async (req, res) => {
     const limit = DEFAULT_PAGE_SIZE;
     const offset = (page - 1) * limit;
 
-    const countResult = await pool.query(
-      "SELECT COUNT(*) FROM evaluations WHERE match != 'skipped'",
-    );
-    const total = parseInt(countResult.rows[0].count, 10);
-    const totalPages = Math.max(1, Math.ceil(total / limit));
+    // Super-admin ('default' workspace via ADMIN_SECRET) sees all workspaces.
+    // Workspace-scoped sessions see only their own data.
+    const isSuperAdmin = req.workspaceId === 'default';
 
+    // Single query: use COUNT(*) OVER() window function to avoid pagination race condition
     const { rows } = await pool.query(
-      "SELECT * FROM evaluations WHERE match != 'skipped' ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-      [limit, offset],
+      isSuperAdmin
+        ? `SELECT *, COUNT(*) OVER() AS _total
+             FROM evaluations
+             WHERE match != 'skipped'
+             ORDER BY created_at DESC
+             LIMIT $1 OFFSET $2`
+        : `SELECT *, COUNT(*) OVER() AS _total
+             FROM evaluations
+             WHERE match != 'skipped' AND workspace_id = $3
+             ORDER BY created_at DESC
+             LIMIT $1 OFFSET $2`,
+      isSuperAdmin ? [limit, offset] : [limit, offset, req.workspaceId],
     );
+
+    const total = rows.length > 0 ? parseInt(rows[0]._total, 10) : 0;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
 
     const tableRows = rows.map((r) => {
       const files = JSON.parse(JSON.stringify(r.files_analyzed || []));

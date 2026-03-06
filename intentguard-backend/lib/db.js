@@ -60,6 +60,8 @@ async function initDb() {
       CREATE INDEX IF NOT EXISTS idx_evaluations_created_at ON evaluations (created_at);
       CREATE INDEX IF NOT EXISTS idx_evaluations_workspace ON evaluations (workspace_id);
       CREATE INDEX IF NOT EXISTS idx_evaluations_workspace_created ON evaluations (workspace_id, created_at);
+      -- Composite index for admin pagination: WHERE workspace_id = ? AND match != 'skipped' ORDER BY created_at DESC
+      CREATE INDEX IF NOT EXISTS idx_evaluations_workspace_match_created ON evaluations (workspace_id, match, created_at DESC);
 
       -- Workspaces registry (for multi-tenancy)
       CREATE TABLE IF NOT EXISTS workspaces (
@@ -256,6 +258,7 @@ async function initDb() {
         UNIQUE(dm_channel, dm_ts)
       );
 
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_file_analyses_eval_name ON file_analyses(evaluation_id, file_name);
       CREATE INDEX IF NOT EXISTS idx_file_analyses_eval ON file_analyses(evaluation_id);
       CREATE INDEX IF NOT EXISTS idx_file_analyses_hash ON file_analyses(file_hash);
       CREATE INDEX IF NOT EXISTS idx_file_analyses_workspace ON file_analyses(workspace_id, created_at);
