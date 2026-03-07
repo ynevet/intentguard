@@ -93,40 +93,6 @@ router.get('/', (req, res) => {
     }
     .mission-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
-    /* ── Problem numbers ── */
-    .numbers-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 2px;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid #21262d;
-      margin-bottom: 36px;
-    }
-    @media (max-width: 640px) { .numbers-grid { grid-template-columns: 1fr; } }
-    .number-cell {
-      background: #161b22;
-      padding: 32px 24px;
-      text-align: center;
-    }
-    .number-cell + .number-cell { border-left: 1px solid #21262d; }
-    @media (max-width: 640px) { .number-cell + .number-cell { border-left: none; border-top: 1px solid #21262d; } }
-    .number-cell .big { font-size: 40px; font-weight: 800; color: #f85149; margin-bottom: 6px; }
-    .number-cell .desc { font-size: 14px; color: #c9d1d9; margin-bottom: 4px; line-height: 1.4; }
-    .number-cell .src { font-size: 11px; color: #484f58; }
-
-    /* ── Blind spot explain ── */
-    .explain-block {
-      background: #161b22;
-      border: 1px solid #21262d;
-      border-radius: 12px;
-      padding: 28px 32px;
-      font-size: 15px;
-      color: #8b949e;
-      line-height: 1.7;
-    }
-    .explain-block strong { color: #e6edf3; }
-
     /* ── 3-Axis ── */
     .axes-grid {
       display: grid;
@@ -192,25 +158,6 @@ router.get('/', (req, res) => {
     .diff-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 5px; }
     .diff-card p { font-size: 13px; color: #8b949e; line-height: 1.5; }
 
-    /* ── Tech stack ── */
-    .stack-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 12px;
-    }
-    .stack-item {
-      background: #161b22;
-      border: 1px solid #21262d;
-      border-radius: 10px;
-      padding: 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .stack-icon { font-size: 20px; flex-shrink: 0; }
-    .stack-name { font-size: 13px; font-weight: 600; color: #c9d1d9; }
-    .stack-desc { font-size: 12px; color: #484f58; margin-top: 2px; }
-
     /* ── Video ── */
     .video-wrap { max-width: 760px; margin: 32px auto 0; }
     .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; border: 1px solid #21262d; box-shadow: 0 16px 48px rgba(0,0,0,0.4); }
@@ -238,7 +185,6 @@ router.get('/', (req, res) => {
     }
     .road-status.live { background: rgba(63,185,80,0.12); color: #3fb950; border: 1px solid rgba(63,185,80,0.25); }
     .road-status.soon { background: rgba(88,166,255,0.1); color: #58a6ff; border: 1px solid rgba(88,166,255,0.2); }
-    .road-status.planned { background: rgba(72,79,88,0.2); color: #8b949e; border: 1px solid #30363d; }
     .road-text strong { color: #e6edf3; }
     .road-text p { color: #8b949e; margin-top: 2px; }
 
@@ -275,13 +221,6 @@ router.get('/', (req, res) => {
       .section-title { font-size: 26px; }
       .section-sub { font-size: 15px; margin-bottom: 28px; }
 
-      /* Numbers */
-      .number-cell { padding: 24px 18px; }
-      .number-cell .big { font-size: 34px; }
-
-      /* Explain block */
-      .explain-block { padding: 22px 20px; font-size: 14px; }
-
       /* vs-badge wraps gracefully */
       .vs-badge { flex-wrap: wrap; gap: 6px; font-size: 13px; }
 
@@ -297,12 +236,6 @@ router.get('/', (req, res) => {
       .diff-card { padding: 18px; }
       .diff-card h3 { font-size: 14px; }
       .diff-card p { font-size: 13px; }
-
-      /* Tech stack */
-      .stack-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
-      .stack-item { padding: 14px; }
-      .stack-name { font-size: 12px; }
-      .stack-desc { font-size: 11px; }
 
       /* Roadmap */
       .roadmap-list li { gap: 12px; font-size: 13px; flex-wrap: wrap; }
@@ -324,17 +257,11 @@ router.get('/', (req, res) => {
       .section-title { font-size: 22px; }
       .section-sub { font-size: 14px; }
 
-      .number-cell .big { font-size: 30px; }
-      .explain-block { padding: 18px 16px; font-size: 13px; }
-
       /* vs-badge stacks vertically */
       .vs-badge { flex-direction: column; align-items: flex-start; gap: 4px; }
 
       /* Roadmap — status badge above text on very small screens */
       .roadmap-list li { flex-direction: column; gap: 6px; }
-
-      /* Stack grid 2 cols */
-      .stack-grid { grid-template-columns: repeat(2, 1fr); }
 
       .cta { padding: 48px 16px; }
       .cta h2 { font-size: 22px; }
@@ -360,35 +287,6 @@ router.get('/', (req, res) => {
     </div>
   </section>
 
-  <!-- ── The Problem ── -->
-  <section class="section">
-    <div class="section-label">The problem</div>
-    <h2 class="section-title">Data breaches keep getting more expensive</h2>
-    <p class="section-sub">And the leading cause is one that traditional DLP tools have never been able to address.</p>
-
-    <div class="numbers-grid">
-      <div class="number-cell">
-        <div class="big">$4.88M</div>
-        <div class="desc">Average cost of a data breach</div>
-        <div class="src">IBM Cost of a Data Breach 2024</div>
-      </div>
-      <div class="number-cell">
-        <div class="big">68%</div>
-        <div class="desc">Of breaches involve a human element</div>
-        <div class="src">Verizon DBIR 2024</div>
-      </div>
-      <div class="number-cell">
-        <div class="big">#1</div>
-        <div class="desc">Cause: sending the wrong file to the wrong person</div>
-        <div class="src">Mis-sends &amp; misdirected data</div>
-      </div>
-    </div>
-
-    <div class="explain-block">
-      Traditional DLP tools scan for <strong>patterns inside files</strong> — credit card numbers, SSNs, regex matches. They are completely blind to the most common scenario: <strong>a user attaches the wrong file entirely</strong>. No pattern matcher can tell you that Q1 financials don't belong in the #general channel, or that the file attached doesn't match what the sender described. That's the blindspot Intentify AI closes.
-    </div>
-  </section>
-
   <!-- ── How it works ── -->
   <section class="section" style="border-top:1px solid #21262d;">
     <div class="section-label">Our approach</div>
@@ -409,17 +307,17 @@ router.get('/', (req, res) => {
       <div class="axis-cell intent">
         <div class="icon">💬</div>
         <h3>Intent</h3>
-        <p>What the sender <em>claims</em> the file is. We parse the message text to understand the stated purpose and expected content.</p>
+        <p>What the sender <em>claims</em> the file is.</p>
       </div>
       <div class="axis-cell content">
         <div class="icon">🔍</div>
         <h3>Content</h3>
-        <p>What's <em>actually inside</em> the attachment — or where a shared link points. AI vision for images, text extraction for PDFs, spreadsheets, presentations, code, and link-type detection for Drive, Dropbox, Pastebin, and more.</p>
+        <p>What's <em>actually inside</em> — AI vision, text extraction, link-type detection.</p>
       </div>
       <div class="axis-cell context">
         <div class="icon">🌐</div>
         <h3>Context</h3>
-        <p>Whether the content is <em>appropriate for the audience</em>. Channel privacy, member count, external guests, and sensitivity level.</p>
+        <p>Whether the content is <em>appropriate for this audience</em>.</p>
       </div>
     </div>
 
@@ -440,93 +338,28 @@ router.get('/', (req, res) => {
         <div class="diff-icon">🔒</div>
         <div>
           <h3>Zero content retention</h3>
-          <p>File contents and message text are processed in memory and immediately discarded. Only privacy-safe metadata is stored. No training on your data, ever.</p>
+          <p>File contents are processed in memory and immediately discarded. No training on your data, ever.</p>
         </div>
       </div>
       <div class="diff-card">
         <div class="diff-icon">✅</div>
         <div>
           <h3>Fail-open design</h3>
-          <p>Errors and uncertain results never block users. Intentify AI catches leaks without disrupting workflows — your team stays productive.</p>
+          <p>Errors never block users. Intentify AI catches leaks without disrupting workflows.</p>
         </div>
       </div>
       <div class="diff-card">
         <div class="diff-icon">⚡</div>
         <div>
           <h3>Two minutes to deploy</h3>
-          <p>One-click Slack install, no agents to deploy, no policies to write. Auto-joins channels and starts protecting immediately.</p>
+          <p>One-click Slack install. No agents, no policies. Auto-joins channels and starts protecting immediately.</p>
         </div>
       </div>
       <div class="diff-card">
         <div class="diff-icon">🧠</div>
         <div>
-          <h3>AI + Heuristics</h3>
-          <p>Two-stage detection: instant regex pre-scan (zero API cost) catches critical patterns, then AI analyzes intent-content alignment for everything else.</p>
-        </div>
-      </div>
-      <div class="diff-card">
-        <div class="diff-icon">🏢</div>
-        <div>
-          <h3>Multi-workspace ready</h3>
-          <p>Full OAuth multi-tenant architecture. Each workspace is isolated with its own tokens, settings, and audit trail.</p>
-        </div>
-      </div>
-      <div class="diff-card">
-        <div class="diff-icon">📊</div>
-        <div>
-          <h3>Full visibility</h3>
-          <p>Admin dashboard with evaluation history, detection breakdown, risk channels, and monthly summaries. Know exactly what was caught and why.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── Technology ── -->
-  <section class="section" style="border-top:1px solid #21262d;">
-    <div class="section-label">Technology</div>
-    <h2 class="section-title">Built on modern, proven infrastructure</h2>
-    <p class="section-sub">Open architecture — runs on your own infrastructure, powered by leading AI models.</p>
-    <div class="stack-grid">
-      <div class="stack-item">
-        <div class="stack-icon">🤖</div>
-        <div>
-          <div class="stack-name">GPT-4o mini</div>
-          <div class="stack-desc">Vision + text analysis</div>
-        </div>
-      </div>
-      <div class="stack-item">
-        <div class="stack-icon">💬</div>
-        <div>
-          <div class="stack-name">Slack API</div>
-          <div class="stack-desc">OAuth V2 multi-workspace</div>
-        </div>
-      </div>
-      <div class="stack-item">
-        <div class="stack-icon">🐘</div>
-        <div>
-          <div class="stack-name">PostgreSQL 17</div>
-          <div class="stack-desc">Tenant-isolated storage</div>
-        </div>
-      </div>
-      <div class="stack-item">
-        <div class="stack-icon">🟢</div>
-        <div>
-          <div class="stack-name">Node.js + Express</div>
-          <div class="stack-desc">Lightweight, fast runtime</div>
-        </div>
-      </div>
-      <div class="stack-item">
-        <div class="stack-icon">⚡</div>
-        <div>
-          <div class="stack-name">Pre-scan engine</div>
-          <div class="stack-desc">Zero-cost regex heuristics</div>
-        </div>
-      </div>
-      <div class="stack-item">
-        <div class="stack-icon">📄</div>
-        <div>
-          <div class="stack-name">File extractors</div>
-          <div class="stack-desc">PDF, DOCX, XLSX, PPTX, CSV</div>
+          <h3>AI + heuristics</h3>
+          <p>Instant regex pre-scan catches known patterns at zero cost, then AI verifies intent-content alignment.</p>
         </div>
       </div>
     </div>
@@ -541,50 +374,29 @@ router.get('/', (req, res) => {
       <li>
         <span class="road-status live">Live</span>
         <div class="road-text">
-          <strong>Slack DLP — three-axis file verification</strong>
-          <p>Intent × Content × Context analysis for every file share. Includes AI vision, text extraction, and PII pre-scan.</p>
+          <strong>Slack DLP — three-axis verification</strong>
+          <p>AI vision, text extraction, PII pre-scan, and shared link detection.</p>
         </div>
       </li>
       <li>
         <span class="road-status live">Live</span>
         <div class="road-text">
-          <strong>Multi-workspace OAuth install</strong>
-          <p>One-click install, per-workspace token isolation, admin dashboard with Sign in with Slack.</p>
-        </div>
-      </li>
-      <li>
-        <span class="road-status live">Live</span>
-        <div class="road-text">
-          <strong>Shared link detection</strong>
-          <p>Detects and evaluates links to Google Drive, Dropbox, OneDrive, Pastebin, Gist, S3, and more — verified against stated intent and channel audience.</p>
+          <strong>Multi-workspace install</strong>
+          <p>One-click OAuth, per-workspace isolation, admin dashboard.</p>
         </div>
       </li>
       <li>
         <span class="road-status soon">Coming soon</span>
         <div class="road-text">
-          <strong>Microsoft Teams integration</strong>
-          <p>Same three-axis detection for Teams file shares and channels.</p>
+          <strong>Microsoft Teams</strong>
+          <p>Same three-axis detection for Teams channels.</p>
         </div>
       </li>
       <li>
         <span class="road-status soon">Coming soon</span>
         <div class="road-text">
           <strong>Email DLP</strong>
-          <p>Catch wrong attachments in outbound email before they reach external recipients.</p>
-        </div>
-      </li>
-      <li>
-        <span class="road-status planned">Planned</span>
-        <div class="road-text">
-          <strong>Compliance reporting</strong>
-          <p>Export audit logs in CSV/JSON for SOC 2, HIPAA, and GDPR compliance reviews.</p>
-        </div>
-      </li>
-      <li>
-        <span class="road-status planned">Planned</span>
-        <div class="road-text">
-          <strong>Policy engine</strong>
-          <p>Define custom rules: block specific file types in specific channels, whitelist trusted users, set escalation workflows.</p>
+          <p>Catch wrong attachments before they reach external recipients.</p>
         </div>
       </li>
     </ul>
