@@ -1009,6 +1009,8 @@ router.get('/', (req, res) => {
           <li>Confidential data in public channels</li>
           <li>Internal docs in Slack Connect channels</li>
           <li>Sensitive screenshots and images</li>
+          <li>Links to sensitive files (Google Drive, Dropbox, OneDrive…)</li>
+          <li>Pastebin / Gist links containing secrets or credentials</li>
         </ul>
       </div>
     </div>
@@ -1058,6 +1060,16 @@ router.get('/', (req, res) => {
             <div class="dqi-indicator"></div>
             <div class="dqi-text"><strong>Design asset — verified safe</strong>Logo variants → #design (internal)</div>
             <div class="dqi-badge safe">Safe ✓</div>
+          </div>
+          <div class="demo-queue-item blocked-item" data-idx="7">
+            <div class="dqi-indicator"></div>
+            <div class="dqi-text"><strong>Google Drive link leak</strong>"Onboarding doc" → Google Sheet with salary data</div>
+            <div class="dqi-badge caught">Blocked</div>
+          </div>
+          <div class="demo-queue-item blocked-item" data-idx="8">
+            <div class="dqi-indicator"></div>
+            <div class="dqi-text"><strong>Pastebin with secrets</strong>"Config snippet" → API keys exposed on Pastebin</div>
+            <div class="dqi-badge caught">Blocked</div>
           </div>
         </div>
 
@@ -1216,6 +1228,48 @@ router.get('/', (req, res) => {
               </div>
             </div>
 
+            <!-- Scenario 7 -->
+            <div class="dp-scenario" data-idx="7">
+              <div class="dp-chat">
+                <div class="dp-bubble">
+                  Here's the onboarding doc for the new hire — please review.
+                  <div class="dp-file"><span class="dp-file-icon">🔗</span><span class="dp-file-name">docs.google.com/spreadsheets/d/1BxiM…</span></div>
+                </div>
+              </div>
+              <div class="dp-steps">
+                <div class="dp-step" data-delay="400"><span class="sdot"></span><span>→ parsing intent: "onboarding doc for new hire"</span></div>
+                <div class="dp-step" data-delay="800"><span class="sdot"></span><span>→ link detected: Google Sheets (spreadsheet)</span></div>
+                <div class="dp-step bad" data-delay="1400"><span class="sdot"></span><span>→ URL path: /spreadsheets — likely salary/HR data</span></div>
+                <div class="dp-step" data-delay="1900"><span class="sdot"></span><span>→ channel: #general (PUBLIC, 240 members)</span></div>
+                <div class="dp-step bad" data-delay="2300"><span class="sdot"></span><span>→ MISMATCH: spreadsheet link in public channel</span></div>
+              </div>
+              <div class="dp-verdict blocked" data-delay="2800">
+                <span class="dp-verdict-icon">🛑</span>
+                <div class="dp-verdict-body"><strong>Link flagged</strong><span>Google Sheets link shared in public channel — may expose sensitive HR or salary data to 240 members.</span></div>
+              </div>
+            </div>
+
+            <!-- Scenario 8 -->
+            <div class="dp-scenario" data-idx="8">
+              <div class="dp-chat">
+                <div class="dp-bubble">
+                  Sharing the config snippet I was talking about.
+                  <div class="dp-file"><span class="dp-file-icon">🔗</span><span class="dp-file-name">pastebin.com/xK9mR2vT</span></div>
+                </div>
+              </div>
+              <div class="dp-steps">
+                <div class="dp-step" data-delay="400"><span class="sdot"></span><span>→ parsing intent: "config snippet"</span></div>
+                <div class="dp-step bad" data-delay="800"><span class="sdot"></span><span>→ link type: Pastebin — high-risk (often secrets)</span></div>
+                <div class="dp-step bad" data-delay="1300"><span class="sdot"></span><span>→ URL pattern: pastebin.com — public paste</span></div>
+                <div class="dp-step bad" data-delay="1800"><span class="sdot"></span><span>→ channel: #engineering (24 members)</span></div>
+                <div class="dp-step bad" data-delay="2200"><span class="sdot"></span><span>→ RISK: public paste may contain API keys/passwords</span></div>
+              </div>
+              <div class="dp-verdict blocked" data-delay="2700">
+                <span class="dp-verdict-icon">🛑</span>
+                <div class="dp-verdict-body"><strong>Link flagged</strong><span>Pastebin links are public and frequently contain exposed credentials. Verify the paste doesn't include secrets.</span></div>
+              </div>
+            </div>
+
           </div><!-- /demo-panel-body -->
         </div><!-- /demo-panel -->
       </div><!-- /demo-layout -->
@@ -1228,6 +1282,8 @@ router.get('/', (req, res) => {
         <div class="demo-dot" data-idx="4"></div>
         <div class="demo-dot" data-idx="5"></div>
         <div class="demo-dot" data-idx="6"></div>
+        <div class="demo-dot" data-idx="7"></div>
+        <div class="demo-dot" data-idx="8"></div>
       </div>
     </div>
   </div>
@@ -1331,6 +1387,8 @@ router.get('/', (req, res) => {
           <tr><td>AI vision for images &amp; screenshots</td><td class="yes">✓</td><td class="no">✗</td></tr>
           <tr><td>Channel audience awareness</td><td class="yes">✓</td><td class="no">✗</td></tr>
           <tr><td>Slack Connect / external guest detection</td><td class="yes">✓</td><td class="no">✗</td></tr>
+          <tr><td>Shared link detection (Drive, Dropbox, OneDrive…)</td><td class="yes">✓</td><td class="no">✗</td></tr>
+          <tr><td>Pastebin / Gist secret exposure detection</td><td class="yes">✓</td><td class="no">✗</td></tr>
           <tr><td>Content retained after analysis</td><td class="highlight">Never</td><td>Stored</td></tr>
           <tr><td>Agent or policy deployment required</td><td class="highlight">None</td><td>Required</td></tr>
           <tr><td>Auth</td><td class="highlight">Sign in with Slack</td><td>Separate portal</td></tr>
@@ -1595,9 +1653,9 @@ router.get('/', (req, res) => {
 
   /* ── 2. DEMO SECTION ── */
   (function() {
-    const SCENARIOS = 7;
+    const SCENARIOS = 9;
     const STEP_DELAYS_DEMO = [400, 900, 1500, 2000, 2400]; // per scenario (max 5 steps)
-    const VERDICT_DELAYS   = [2700, 2800, 2700, 2800, 2900, 2700, 2800];
+    const VERDICT_DELAYS   = [2700, 2800, 2700, 2800, 2900, 2700, 2800, 2800, 2700];
     const HOLD             = 2000;
     const TOTAL_CYCLE      = 8000;
 

@@ -5,6 +5,65 @@ const { getSetting } = require('./db');
 const { extractText, canExtract } = require('./extractors');
 const { preScan } = require('./pre-scan');
 
+// ── File-sharing link detectors ──────────────────────────────────
+// Matches links to hosted file services that carry files but not as native Slack attachments.
+const FILE_LINK_PATTERNS = [
+  // Google Drive / Docs / Sheets / Slides
+  { pattern: /https:\/\/(?:docs|drive)\.google\.com\/[^\s>)]+/gi, service: 'Google Drive' },
+  // Dropbox
+  { pattern: /https:\/\/(?:www\.)?dropbox\.com\/[^\s>)]+/gi, service: 'Dropbox' },
+  // OneDrive / SharePoint
+  { pattern: /https:\/\/(?:onedrive\.live\.com|[a-z0-9-]+\.sharepoint\.com|1drv\.ms)\/[^\s>)]+/gi, service: 'OneDrive/SharePoint' },
+  // Box
+  { pattern: /https:\/\/(?:app\.)?box\.com\/[^\s>)]+/gi, service: 'Box' },
+  // WeTransfer
+  { pattern: /https:\/\/we\.tl\/[^\s>)]+/gi, service: 'WeTransfer' },
+  // iCloud Drive
+  { pattern: /https:\/\/www\.icloud\.com\/[^\s>)]+/gi, service: 'iCloud Drive' },
+  // Notion pages (often used to share docs)
+  { pattern: /https:\/\/(?:www\.)?notion\.so\/[^\s>)]+/gi, service: 'Notion' },
+  // GitHub Gist
+  { pattern: /https:\/\/gist\.github\.com\/[^\s>)]+/gi, service: 'GitHub Gist' },
+  // Pastebin
+  { pattern: /https:\/\/pastebin\.com\/[^\s>)]+/gi, service: 'Pastebin' },
+  // Confluence
+  { pattern: /https:\/\/[a-z0-9-]+\.atlassian\.net\/wiki\/[^\s>)]+/gi, service: 'Confluence' },
+  // S3 presigned URLs / direct downloads
+  { pattern: /https:\/\/[a-z0-9-]+\.s3(?:\.[a-z0-9-]+)?\.amazonaws\.com\/[^\s>)]+/gi, service: 'AWS S3' },
+  // Azure Blob Storage
+  { pattern: /https:\/\/[a-z0-9-]+\.blob\.core\.windows\.net\/[^\s>)]+/gi, service: 'Azure Blob' },
+  // Generic direct file downloads by extension
+  { pattern: /https?:\/\/[^\s>)"]+\.(?:pdf|docx?|xlsx?|pptx?|csv|zip|tar\.gz|rar|json|yaml|yml|env|pem|key)\b[^\s>)"]*/gi, service: 'direct download' },
+];
+
+/**
+ * Extract file-sharing links from a Slack message text.
+ * Slack encodes URLs as <https://...> or <https://...|display text>.
+ * We strip angle brackets and pipe sections before matching.
+ *
+ * @param {string} text - raw Slack message text
+ * @returns {Array<{url: string, service: string}>}
+ */
+function extractFileLinks(text) {
+  if (!text) return [];
+  // Decode Slack URL encoding: <https://example.com|label> → https://example.com
+  const decoded = text.replace(/<(https?:\/\/[^|>]+)(?:\|[^>]*)?>|<([^>]+)>/g, (m, url) => url || '');
+  const found = [];
+  const seen = new Set();
+  for (const { pattern, service } of FILE_LINK_PATTERNS) {
+    pattern.lastIndex = 0;
+    let match;
+    while ((match = pattern.exec(decoded)) !== null) {
+      const url = match[0].replace(/[.,;!?]+$/, ''); // trim trailing punctuation
+      if (!seen.has(url)) {
+        seen.add(url);
+        found.push({ url, service });
+      }
+    }
+  }
+  return found;
+}
+
 let openai;
 function getOpenAIClient() {
   if (!openai) {
@@ -98,6 +157,9 @@ Key rules:
 - Multiple files: if ANY file is a clear mismatch, overall = "mismatch"
 - Text-extracted files: use the extracted text content for high-confidence analysis
 - Metadata-only files: use filename/type/size, lower confidence
+- Shared links (Google Drive, Dropbox, OneDrive, etc.): treat as files — evaluate URL context vs stated intent vs channel audience
+- Pastebin/Gist links: treat as potentially high-risk (often contain secrets, credentials, or code)
+- S3/Azure Blob links: treat as potentially sensitive (cloud storage may expose internal data)
 
 Output JSON:
 {"match":"match"|"mismatch"|"uncertain","confidence":0.0-1.0,"reasoning":"One sentence","contextRisk":"none"|"low"|"medium"|"high","mismatchType":"none"|"intent_vs_content"|"wrong_audience"|"pii_exposure"|"credential_leak"|"sensitive_in_public"|"external_leak","intentLabel":"short label for user's claim","riskSummary":"One sentence using category labels only, never quote message text or file contents","files":[{"name":"filename","finding":"One sentence","classificationLabel":"financial_report"|"medical_record"|"credentials"|"pii_document"|"legal_document"|"internal_strategy"|"source_code"|"general_document"|"image_screenshot"|"unknown"}]}`;
@@ -199,9 +261,12 @@ function categorizeFiles(files) {
   const images = [];
   const extractable = []; // PDFs, docs, spreadsheets, etc.
   const nonImages = [];
+  const links = []; // file-sharing links (virtual files)
 
   for (const file of files) {
-    if (IMAGE_MIMETYPES.has(file.mimetype) && file.size <= MAX_IMAGE_SIZE) {
+    if (file._isLink) {
+      links.push(file);
+    } else if (IMAGE_MIMETYPES.has(file.mimetype) && file.size <= MAX_IMAGE_SIZE) {
       images.push(file);
     } else if (canExtract(file)) {
       extractable.push(file);
@@ -213,7 +278,7 @@ function categorizeFiles(files) {
     }
   }
 
-  return { images, extractable, nonImages };
+  return { images, extractable, nonImages, links };
 }
 
 function buildContextSection(channelCtx) {
@@ -256,7 +321,7 @@ function buildContextSection(channelCtx) {
 }
 
 async function buildOpenAIMessages(text, files, channelCtx, strictAudienceBlocking = false, preScanHints = null, workspaceId = 'default') {
-  const { images, extractable, nonImages } = categorizeFiles(files);
+  const { images, extractable, nonImages, links } = categorizeFiles(files);
 
   // Cap vision images — extras analyzed as metadata-only (saves 85 tokens + download per image)
   const visionImages = images.slice(0, MAX_VISION_IMAGES);
@@ -368,6 +433,26 @@ async function buildOpenAIMessages(text, files, channelCtx, strictAudienceBlocki
     });
   }
 
+  // Add file-sharing links as virtual files — URL provides service/type context
+  for (const file of links) {
+    // Infer likely content type from URL path/query params where possible
+    const urlLower = file._linkUrl.toLowerCase();
+    let linkHint = '';
+    if (urlLower.includes('/spreadsheet') || urlLower.includes('sheet')) linkHint = 'spreadsheet/Google Sheets';
+    else if (urlLower.includes('/document') || urlLower.includes('doc')) linkHint = 'document/Google Docs';
+    else if (urlLower.includes('/presentation') || urlLower.includes('slide')) linkHint = 'presentation/Google Slides';
+    else if (urlLower.includes('.pdf')) linkHint = 'PDF document';
+    else if (urlLower.includes('.xlsx') || urlLower.includes('.csv') || urlLower.includes('.xls')) linkHint = 'spreadsheet';
+    else if (urlLower.includes('.docx') || urlLower.includes('.doc')) linkHint = 'Word document';
+    else if (urlLower.includes('gist') || urlLower.includes('pastebin')) linkHint = 'code/text paste — may contain secrets or code';
+    else if (urlLower.includes('s3') || urlLower.includes('blob.core')) linkHint = 'cloud storage file — potentially sensitive';
+    const hintNote = linkHint ? ` Likely content: ${linkHint}.` : '';
+    content.push({
+      type: 'text',
+      text: `### Shared link (${file._linkService}): ${file._linkUrl} [analyzed via: URL metadata only — content not downloaded].${hintNote} Evaluate whether sharing a ${file._linkService} link matches the stated intent and is appropriate for this channel/audience.`,
+    });
+  }
+
   // Add pre-scan hints if available (signals_only verdict — help the LLM focus)
   if (preScanHints && preScanHints.length > 0) {
     const hintLines = preScanHints.map((h) => {
@@ -393,6 +478,7 @@ async function buildOpenAIMessages(text, files, channelCtx, strictAudienceBlocki
       ...overflowImages.map((file) => ({ name: file.name, method: 'metadata-only' })),
       ...processedExtracts.map(({ file, method }) => ({ name: file.name, method })),
       ...nonImages.map((file) => ({ name: file.name, method: 'metadata-only' })),
+      ...links.map((file) => ({ name: file._linkUrl, method: 'link-metadata', service: file._linkService })),
     ],
     extractedFiles: processedExtracts,
   };
@@ -419,18 +505,37 @@ async function analyzeMessage(event, workspaceId = 'default') {
     return result;
   }
 
-  // Skip messages that are only URLs/links — no real intent text to analyze
+  // Detect file-sharing links in the message
+  const fileLinks = extractFileLinks(event.text);
+  const hasFileLinks = fileLinks.length > 0;
+
+  // Skip messages that are only URLs/links with no intent text
   const textWithoutUrls = event.text.replace(/<https?:\/\/[^>|]+(?:\|[^>]+)?>/g, '').replace(/https?:\/\/\S+/g, '').trim();
-  if (!textWithoutUrls) {
+  if (!textWithoutUrls && !hasFileLinks) {
     const result = buildSkippedResult('Message contains only URLs, no intent text');
     logger.info({ match: result.match, user: event.user, channel: event.channel }, 'Risk engine: skipped');
     return result;
   }
 
-  if (!event.files || event.files.length === 0) {
-    const result = buildSkippedResult('No files attached to message');
+  const hasNativeFiles = event.files && event.files.length > 0;
+
+  if (!hasNativeFiles && !hasFileLinks) {
+    const result = buildSkippedResult('No files or file links attached to message');
     logger.info({ match: result.match, user: event.user, channel: event.channel }, 'Risk engine: skipped');
     return result;
+  }
+
+  // If there are file-sharing links, synthesize virtual file objects for analysis
+  if (hasFileLinks && !hasNativeFiles) {
+    logger.info({
+      user: event.user, channel: event.channel, linkCount: fileLinks.length,
+      services: fileLinks.map((l) => l.service),
+    }, 'Risk engine: detected file-sharing links (no native attachments)');
+  } else if (hasFileLinks) {
+    logger.info({
+      user: event.user, channel: event.channel,
+      nativeFiles: event.files.length, linkCount: fileLinks.length,
+    }, 'Risk engine: message has both native files and file-sharing links');
   }
 
   if (!process.env.OPENAI_API_KEY) {
@@ -459,15 +564,35 @@ async function analyzeMessage(event, workspaceId = 'default') {
     const strictAudienceBlocking = (strictAudienceSetting || 'false') === 'true';
     logger.info({ channelCtx, strictAudienceBlocking }, 'Risk engine: channel context fetched');
 
+    // Merge native files with any synthesized link-file objects
+    const allFiles = [
+      ...(event.files || []),
+      ...fileLinks.map((link) => ({
+        id: null,
+        name: link.url.split('/').pop().split('?')[0] || link.service,
+        mimetype: 'text/uri-list',
+        filetype: 'link',
+        size: 0,
+        url_private: link.url,
+        url_private_download: null,
+        _isLink: true,
+        _linkService: link.service,
+        _linkUrl: link.url,
+      })),
+    ];
+
     // Build messages (downloads + extracts files in parallel)
-    const { messages, filesMeta, extractedFiles } = await buildOpenAIMessages(event.text, event.files, channelCtx, strictAudienceBlocking, null, workspaceId);
+    const { messages, filesMeta, extractedFiles } = await buildOpenAIMessages(event.text, allFiles, channelCtx, strictAudienceBlocking, null, workspaceId);
 
     // ── Pre-scan: regex/heuristic detection before LLM ──
     const extractedForPreScan = (extractedFiles || [])
       .filter((ef) => ef.text)
       .map((ef) => ({ name: ef.file.name, text: ef.text, mimetype: ef.file.mimetype }));
 
-    const preScanResult = preScan(event.text, extractedForPreScan, event.files);
+    // Add link URLs to pre-scan (catches secrets pasted into pastebin/gist URLs, s3 key patterns, etc.)
+    const linkTextForPreScan = fileLinks.map((l) => ({ name: l.service, text: l.url, mimetype: 'text/uri-list' }));
+
+    const preScanResult = preScan(event.text, [...extractedForPreScan, ...linkTextForPreScan], allFiles.filter((f) => !f._isLink));
 
     // Determine context risk for pre-scan result
     const contextRisk = channelCtx.isShared ? 'high'

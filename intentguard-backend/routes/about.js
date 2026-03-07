@@ -414,7 +414,7 @@ router.get('/', (req, res) => {
       <div class="axis-cell content">
         <div class="icon">🔍</div>
         <h3>Content</h3>
-        <p>What's <em>actually inside</em> the attachment. AI vision for images, text extraction for PDFs, spreadsheets, presentations, and code.</p>
+        <p>What's <em>actually inside</em> the attachment — or where a shared link points. AI vision for images, text extraction for PDFs, spreadsheets, presentations, code, and link-type detection for Drive, Dropbox, Pastebin, and more.</p>
       </div>
       <div class="axis-cell context">
         <div class="icon">🌐</div>
@@ -550,6 +550,13 @@ router.get('/', (req, res) => {
         <div class="road-text">
           <strong>Multi-workspace OAuth install</strong>
           <p>One-click install, per-workspace token isolation, admin dashboard with Sign in with Slack.</p>
+        </div>
+      </li>
+      <li>
+        <span class="road-status live">Live</span>
+        <div class="road-text">
+          <strong>Shared link detection</strong>
+          <p>Detects and evaluates links to Google Drive, Dropbox, OneDrive, Pastebin, Gist, S3, and more — verified against stated intent and channel audience.</p>
         </div>
       </li>
       <li>
