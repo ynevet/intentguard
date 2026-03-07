@@ -52,7 +52,10 @@ function buildNav(activePage, session) {
     rightSection = `${teamBadge}
     <a href="/admin/login/logout" style="color:#8b949e;text-decoration:none;font-size:13px;${logoutMargin}">Logout</a>`;
   } else {
-    rightSection = `<a href="/slack/oauth/install" style="margin-left:auto;display:inline-block;padding:6px 16px;background:#1f6feb;color:#fff;font-size:13px;font-weight:600;border-radius:6px;text-decoration:none;transition:background 0.2s;">Add to Slack</a>`;
+    rightSection = `<span style="margin-left:auto;display:inline-flex;align-items:center;gap:10px;">
+    <a href="/admin/login" style="color:#8b949e;text-decoration:none;font-size:13px;font-weight:500;transition:color 0.15s;" onmouseover="this.style.color='#e6edf3'" onmouseout="this.style.color='#8b949e'">Sign in</a>
+    <a href="/slack/oauth/install" style="display:inline-block;padding:6px 16px;background:#1f6feb;color:#fff;font-size:13px;font-weight:600;border-radius:6px;text-decoration:none;transition:background 0.2s;" onmouseover="this.style.background='#388bfd'" onmouseout="this.style.background='#1f6feb'">Add to Slack</a>
+    </span>`;
   }
 
   return `<nav style="background:#161b22;border-bottom:1px solid #21262d;padding:12px 24px;display:flex;align-items:center;gap:20px;">
