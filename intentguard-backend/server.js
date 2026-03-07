@@ -37,6 +37,11 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 // Page view analytics — after cookieParser, before routes
 app.use(trackPageView);
 
+// Favicon + PWA icons
+app.get('/favicon.ico', (req, res) => res.sendFile(path.join(__dirname, 'public', 'favicon.ico')));
+app.get('/apple-touch-icon.png', (req, res) => res.sendFile(path.join(__dirname, 'public', 'apple-touch-icon.png')));
+app.get('/icon-192.png', (req, res) => res.sendFile(path.join(__dirname, 'public', 'icon-192.png')));
+
 // SEO: robots.txt, sitemap.xml, llms.txt
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain').send(`User-agent: *

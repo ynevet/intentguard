@@ -227,6 +227,8 @@ router.get('/evaluations', async (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <title>Intentify AI — Admin Dashboard</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
