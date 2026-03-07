@@ -1,8 +1,18 @@
 const express = require('express');
+const crypto = require('crypto');
 const { buildNav, buildHead } = require('../lib/nav');
 const router = express.Router();
 
 router.get('/', (req, res) => {
+  // Returning visitor detection
+  const isReturning = !!req.cookies?.ig_visited;
+  res.cookie('ig_visited', '1', {
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+    httpOnly: false,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+  });
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'AboutPage',
@@ -423,6 +433,47 @@ router.get('/', (req, res) => {
     </div>
   </footer>
 
+  <script>
+  /* ── UTM attribution cookie ── */
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var src = params.get('utm_source');
+    if (src) {
+      var val = [src, params.get('utm_medium'), params.get('utm_campaign'), params.get('utm_content')].filter(Boolean).join('|');
+      var exp = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
+      document.cookie = 'ig_utm=' + encodeURIComponent(val) + '; expires=' + exp + '; path=/; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}';
+    }
+  })();
+
+  /* ── Exit-intent popup ── */
+  (function () {
+    if (sessionStorage.getItem('ig_exit_shown')) return;
+    if (window.innerWidth < 768) return;
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;';
+    var isRet = ${isReturning ? 'true' : 'false'};
+    overlay.innerHTML = '<div style="background:#161b22;border:1px solid #30363d;border-radius:16px;padding:40px 36px;max-width:480px;width:90%;text-align:center;position:relative;">' +
+      '<button onclick="this.closest(\'[style*=fixed]\').style.display=\'none\'" style="position:absolute;top:14px;right:16px;background:none;border:none;color:#8b949e;font-size:20px;cursor:pointer;line-height:1;">&times;</button>' +
+      '<div style="font-size:28px;margin-bottom:16px;">🛡️</div>' +
+      '<h2 style="font-size:20px;font-weight:700;margin-bottom:10px;color:#e6edf3;">' + (isRet ? 'Still thinking it over?' : 'Ready to close the blindspot?') + '</h2>' +
+      '<p style="font-size:14px;color:#8b949e;margin-bottom:28px;line-height:1.6;">One-click Slack install. No agents, no policies, no credit card. Starts protecting in 2 minutes.</p>' +
+      '<a href="/slack/oauth/install" style="display:block;padding:13px 24px;background:#1f6feb;color:#fff;font-size:15px;font-weight:600;border-radius:8px;text-decoration:none;margin-bottom:10px;">Add to Slack &mdash; free</a>' +
+      '<a href="/features" style="display:block;padding:11px 24px;background:transparent;color:#8b949e;font-size:14px;border-radius:8px;text-decoration:none;border:1px solid #30363d;">See full features</a>' +
+      '<p style="font-size:12px;color:#484f58;margin-top:16px;">Zero content retention &middot; 2-min setup</p>' +
+    '</div>';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.style.display = 'none'; });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') overlay.style.display = 'none'; });
+    var triggered = false;
+    document.addEventListener('mouseleave', function (e) {
+      if (triggered || e.clientY > 20) return;
+      triggered = true;
+      sessionStorage.setItem('ig_exit_shown', '1');
+      overlay.style.display = 'flex';
+      try { navigator.sendBeacon('/features/intent', JSON.stringify({ event: 'exit_intent', data: { path: '/about' } })); } catch (_) {}
+    });
+  })();
+  </script>
 </body>
 </html>`);
 });

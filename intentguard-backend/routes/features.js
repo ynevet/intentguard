@@ -2,8 +2,20 @@ const crypto = require('crypto');
 const express = require('express');
 const logger = require('../lib/logger');
 const { buildNav, buildHead } = require('../lib/nav');
-const { saveLead } = require('../lib/db');
+const { saveLead, getActiveWorkspaceCount } = require('../lib/db');
 const router = express.Router();
+
+// In-memory cache for workspace count (refresh every 10 min)
+let _wsCountCache = { value: 0, updatedAt: 0 };
+async function getCachedWorkspaceCount() {
+  if (Date.now() - _wsCountCache.updatedAt > 10 * 60 * 1000) {
+    try {
+      _wsCountCache.value = await getActiveWorkspaceCount();
+      _wsCountCache.updatedAt = Date.now();
+    } catch (_) { /* keep stale value on error */ }
+  }
+  return _wsCountCache.value;
+}
 
 // In-memory rate limiting for contact form
 const submissions = new Map();
@@ -17,9 +29,23 @@ setInterval(() => {
   }
 }, 10 * 60 * 1000);
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const thanks = req.query.thanks === '1';
   const rateLimited = req.query.error === 'rate_limit';
+
+  // ── Returning visitor detection ──────────────────────────────────────
+  // ig_visited: set on first page load, used to serve differentiated CTA on return visits
+  const isReturning = !!req.cookies?.ig_visited;
+  res.cookie('ig_visited', '1', {
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    httpOnly: false, // accessible to JS for client-side personalization
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+  });
+
+  // ── Real install count for social proof ──────────────────────────────
+  const installCount = await getCachedWorkspaceCount();
   const jsonLd = [
     {
       '@context': 'https://schema.org',
@@ -945,12 +971,16 @@ router.get('/', (req, res) => {
   <!-- ══ HERO ══ -->
   <section class="hero">
     <div class="hero-badge">68% of breaches involve a human element — Verizon DBIR 2024</div>
-    <h1>Your DLP misses the<br><em>most common data leak</em></h1>
-    <p class="hero-sub">Wrong file attachments cause more data incidents than phishing and malware combined. Intentify AI catches them in Slack before they leave.</p>
+    ${isReturning
+      ? `<h1>Still evaluating?<br><em>See it live in 90 seconds</em></h1>
+         <p class="hero-sub">Intentify AI monitors every Slack file share and catches the ones that don't match. One-click install, no policies to write.</p>`
+      : `<h1>Your DLP misses the<br><em>most common data leak</em></h1>
+         <p class="hero-sub">Wrong file attachments cause more data incidents than phishing and malware combined. Intentify AI catches them in Slack before they leave.</p>`
+    }
     <div class="hero-actions">
-      <a class="btn btn-primary" href="/slack/oauth/install">Add to Slack &mdash; free</a>
+      <a class="btn btn-primary" id="ctaHero" href="/slack/oauth/install">Add to Slack &mdash; free</a>
       <a class="btn btn-secondary" href="#live-demo">See live demo ↓</a>
-      <span class="note">2-minute setup &middot; Zero content retention &middot; No credit card</span>
+      <span class="note">2-minute setup &middot; Zero content retention &middot; No credit card${installCount >= 10 ? ` &middot; <strong style="color:#3fb950;">${installCount} workspaces protected</strong>` : ''}</span>
     </div>
 
     <!-- Live threat feed terminal -->
@@ -1802,6 +1832,121 @@ router.get('/', (req, res) => {
       el.addEventListener('input', clearError);
     });
   })();
+
+  /* ── UTM attribution cookie ──────────────────────────────────────────
+     Capture utm_* params on landing and store in a 30-day first-party
+     cookie so the OAuth callback can attribute the install to the channel. */
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var src    = params.get('utm_source');
+    var med    = params.get('utm_medium');
+    var cmp    = params.get('utm_campaign');
+    var cnt    = params.get('utm_content');
+    if (src) {
+      var val = [src, med, cmp, cnt].filter(Boolean).join('|');
+      var exp = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
+      document.cookie = 'ig_utm=' + encodeURIComponent(val) + '; expires=' + exp + '; path=/; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}';
+    }
+  })();
+
+  /* ── Intent signal tracking ─────────────────────────────────────────
+     Tracks scroll depth milestones and CTA pre-click intent signals.
+     Fires a lightweight beacon so the server can log high-intent sessions. */
+  (function () {
+    var fired = {};
+    function beacon(event, data) {
+      try {
+        navigator.sendBeacon('/features/intent', JSON.stringify({ event: event, data: data || {} }));
+      } catch (_) {}
+    }
+
+    // Scroll depth milestones: 25%, 50%, 75%, 100%
+    var milestones = [25, 50, 75, 100];
+    window.addEventListener('scroll', function () {
+      var scrolled = window.scrollY + window.innerHeight;
+      var total    = document.documentElement.scrollHeight;
+      var pct      = Math.round((scrolled / total) * 100);
+      milestones.forEach(function (m) {
+        if (!fired['scroll_' + m] && pct >= m) {
+          fired['scroll_' + m] = true;
+          beacon('scroll_depth', { pct: m, path: '/features' });
+        }
+      });
+    }, { passive: true });
+
+    // CTA click intent — fire before redirect so the beacon has time
+    document.querySelectorAll('a[href="/slack/oauth/install"], a[href="/slack/oauth/authorize"]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        beacon('cta_click', { label: el.id || el.textContent.trim().slice(0, 40), path: '/features' });
+      });
+    });
+
+    // Privacy/sub-processors page visit is a high-intent signal — log if they navigated here from this page
+    // (captured server-side via referrer; nothing to do client-side)
+  })();
+
+  /* ── Exit-intent popup ───────────────────────────────────────────────
+     Triggers when the cursor leaves the viewport toward the browser chrome.
+     Shows only once per session; suppressed if the user has already clicked
+     "Add to Slack" or if they're on a small screen (mobile). */
+  (function () {
+    if (sessionStorage.getItem('ig_exit_shown')) return;
+    if (window.innerWidth < 768) return;
+
+    // Create popup element
+    var overlay = document.createElement('div');
+    overlay.id = 'exitOverlay';
+    overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;';
+
+    var isRet = ${isReturning ? 'true' : 'false'};
+    var headline = isRet
+      ? 'Still thinking it over?'
+      : 'Before you go — see it in 90 seconds';
+    var sub = isRet
+      ? 'Intentify AI installs in one click. No IT, no policies, no credit card.'
+      : 'Watch Intentify AI catch a wrong-file send live. No sign-up required.';
+
+    overlay.innerHTML = '<div style="background:#161b22;border:1px solid #30363d;border-radius:16px;padding:40px 36px;max-width:480px;width:90%;text-align:center;position:relative;">' +
+      '<button onclick="document.getElementById(\'exitOverlay\').style.display=\'none\'" style="position:absolute;top:14px;right:16px;background:none;border:none;color:#8b949e;font-size:20px;cursor:pointer;line-height:1;">&times;</button>' +
+      '<div style="font-size:28px;margin-bottom:16px;">🛡️</div>' +
+      '<h2 style="font-size:20px;font-weight:700;margin-bottom:10px;color:#e6edf3;">' + headline + '</h2>' +
+      '<p style="font-size:14px;color:#8b949e;margin-bottom:28px;line-height:1.6;">' + sub + '</p>' +
+      '<div style="display:flex;flex-direction:column;gap:10px;">' +
+        '<a href="/slack/oauth/install" id="exitCtaInstall" style="display:block;padding:13px 24px;background:#1f6feb;color:#fff;font-size:15px;font-weight:600;border-radius:8px;text-decoration:none;">Add to Slack &mdash; free</a>' +
+        '<a href="#live-demo" onclick="document.getElementById(\'exitOverlay\').style.display=\'none\'" style="display:block;padding:11px 24px;background:transparent;color:#8b949e;font-size:14px;border-radius:8px;text-decoration:none;border:1px solid #30363d;">Watch the demo first ↓</a>' +
+      '</div>' +
+      '<p style="font-size:12px;color:#484f58;margin-top:16px;">2-min setup &middot; Zero content retention &middot; No credit card</p>' +
+    '</div>';
+
+    document.body.appendChild(overlay);
+
+    // Close on overlay click (outside the card)
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) overlay.style.display = 'none';
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') overlay.style.display = 'none';
+    });
+
+    // Trigger: cursor exits toward top of browser (exit-intent)
+    var triggered = false;
+    document.addEventListener('mouseleave', function (e) {
+      if (triggered || e.clientY > 20) return;
+      triggered = true;
+      sessionStorage.setItem('ig_exit_shown', '1');
+      overlay.style.display = 'flex';
+      try { navigator.sendBeacon('/features/intent', JSON.stringify({ event: 'exit_intent', data: { path: '/features' } })); } catch (_) {}
+    });
+
+    // Mark as shown so repeat mouseleave doesn't re-trigger
+    document.getElementById && document.querySelectorAll('#exitCtaInstall').forEach(function (el) {
+      el.addEventListener('click', function () {
+        try { navigator.sendBeacon('/features/intent', JSON.stringify({ event: 'exit_cta_click', data: { path: '/features' } })); } catch (_) {}
+      });
+    });
+  })();
   </script>
 
 </body>
@@ -1860,6 +2005,18 @@ router.post('/contact', express.urlencoded({ extended: false }), async (req, res
 
   if (isAjax) return res.json({ ok: true });
   res.redirect('/features?thanks=1');
+});
+
+// Intent signal beacon — receives scroll depth, CTA clicks, exit-intent events
+// Logs them for founder visibility; low-overhead fire-and-forget
+router.post('/intent', express.json({ limit: '2kb' }), (req, res) => {
+  const { event, data } = req.body || {};
+  if (event && typeof event === 'string') {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+    const ipHash = crypto.createHash('sha256').update(ip).digest('hex');
+    logger.info({ event, data, ipHash, userAgent: req.headers['user-agent']?.slice(0, 120) }, 'Intent signal');
+  }
+  res.status(204).end();
 });
 
 module.exports = router;

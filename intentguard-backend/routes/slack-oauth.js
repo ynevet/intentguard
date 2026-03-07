@@ -110,7 +110,8 @@ router.get('/callback', async (req, res) => {
       throw new Error('OAuth response missing team_id or access_token');
     }
 
-    // Persist workspace + tokens
+    // Persist workspace + tokens (include UTM attribution cookie if present)
+    const installSource = req.cookies?.ig_utm || null;
     await upsertWorkspace({
       id: teamId,
       name: teamName || teamId,
@@ -120,6 +121,7 @@ router.get('/callback', async (req, res) => {
       userToken,
       botUserId,
       teamName,
+      installSource,
     });
 
     // Seed default settings for new workspace (best-effort — don't fail install on seed error)
@@ -243,6 +245,20 @@ router.get('/install', (req, res) => {
       : '<div class="not-configured"><p>OAuth is not configured. Set <code>SLACK_CLIENT_ID</code>, <code>SLACK_CLIENT_SECRET</code>, and optionally <code>SLACK_OAUTH_REDIRECT_URI</code> to enable the install flow.</p></div>'
     }
   </div>
+  <script>
+  /* UTM attribution cookie — capture on install page so direct landings are also attributed */
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var src = params.get('utm_source');
+    if (src) {
+      var val = [src, params.get('utm_medium'), params.get('utm_campaign'), params.get('utm_content')].filter(Boolean).join('|');
+      var exp = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
+      document.cookie = 'ig_utm=' + encodeURIComponent(val) + '; expires=' + exp + '; path=/; SameSite=Lax';
+    }
+    /* Intent beacon — someone viewing the install page is very high intent */
+    try { navigator.sendBeacon('/features/intent', JSON.stringify({ event: 'install_page_view', data: { ref: document.referrer?.slice(0, 100) } })); } catch (_) {}
+  })();
+  </script>
 </body>
 </html>`);
 });

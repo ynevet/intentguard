@@ -76,6 +76,7 @@ async function initDb() {
       ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS bot_user_id TEXT;
       ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS team_name TEXT;
       ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS installed_at TIMESTAMPTZ;
+      ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS install_source TEXT;
 
       INSERT INTO workspaces (id, name, platform, status)
         VALUES ('default', 'Default Workspace', 'slack', 'active')
@@ -411,10 +412,10 @@ async function getWorkspace(workspaceId) {
   return rows[0] || null;
 }
 
-async function upsertWorkspace({ id, name, platform = 'slack', status = 'active', botToken, userToken, botUserId, teamName }) {
+async function upsertWorkspace({ id, name, platform = 'slack', status = 'active', botToken, userToken, botUserId, teamName, installSource }) {
   await pool.query(
-    `INSERT INTO workspaces (id, name, platform, status, bot_token, user_token, bot_user_id, team_name, installed_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+    `INSERT INTO workspaces (id, name, platform, status, bot_token, user_token, bot_user_id, team_name, installed_at, install_source)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), $9)
      ON CONFLICT (id) DO UPDATE SET
        name = COALESCE(EXCLUDED.name, workspaces.name),
        platform = COALESCE(EXCLUDED.platform, workspaces.platform),
@@ -423,9 +424,17 @@ async function upsertWorkspace({ id, name, platform = 'slack', status = 'active'
        user_token = COALESCE(EXCLUDED.user_token, workspaces.user_token),
        bot_user_id = COALESCE(EXCLUDED.bot_user_id, workspaces.bot_user_id),
        team_name = COALESCE(EXCLUDED.team_name, workspaces.team_name),
-       installed_at = COALESCE(workspaces.installed_at, now())`,
-    [id, name, platform, status, botToken || null, userToken || null, botUserId || null, teamName || null],
+       installed_at = COALESCE(workspaces.installed_at, now()),
+       install_source = COALESCE(workspaces.install_source, EXCLUDED.install_source)`,
+    [id, name, platform, status, botToken || null, userToken || null, botUserId || null, teamName || null, installSource || null],
   );
+}
+
+async function getActiveWorkspaceCount() {
+  const { rows } = await pool.query(
+    "SELECT COUNT(*) AS count FROM workspaces WHERE status = 'active' AND id != 'default'",
+  );
+  return parseInt(rows[0]?.count || '0', 10);
 }
 
 async function deactivateWorkspace(workspaceId) {
@@ -471,5 +480,5 @@ module.exports = {
   pool, initDb, getSetting, setSetting, runRetentionCleanup,
   saveResendContext, getResendContext, deleteResendContext, cleanupExpiredResendContexts,
   getWorkspace, upsertWorkspace, deactivateWorkspace, getAllActiveWorkspaces, seedWorkspaceSettings,
-  saveLead,
+  saveLead, getActiveWorkspaceCount,
 };
