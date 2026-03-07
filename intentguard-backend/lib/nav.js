@@ -52,9 +52,9 @@ function buildNav(activePage, session) {
     rightSection = `${teamBadge}
     <a href="/admin/login/logout" style="color:#8b949e;text-decoration:none;font-size:13px;${logoutMargin}">Logout</a>`;
   } else {
-    rightSection = `<span style="margin-left:auto;display:inline-flex;align-items:center;gap:10px;">
-    <a href="/admin/login" style="color:#8b949e;text-decoration:none;font-size:13px;font-weight:500;transition:color 0.15s;" onmouseover="this.style.color='#e6edf3'" onmouseout="this.style.color='#8b949e'">Sign in</a>
-    <a href="/slack/oauth/install" style="display:inline-block;padding:6px 16px;background:#1f6feb;color:#fff;font-size:13px;font-weight:600;border-radius:6px;text-decoration:none;transition:background 0.2s;" onmouseover="this.style.background='#388bfd'" onmouseout="this.style.background='#1f6feb'">Add to Slack</a>
+    rightSection = `<span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px;">
+    <a href="/admin/login" style="display:inline-block;padding:6px 16px;background:transparent;color:#e6edf3;font-size:13px;font-weight:600;border-radius:6px;border:1px solid #30363d;text-decoration:none;transition:all 0.15s;" onmouseover="this.style.background='#21262d';this.style.borderColor='#484f58'" onmouseout="this.style.background='transparent';this.style.borderColor='#30363d'">Sign in</a>
+    <a href="/slack/oauth/install" style="display:inline-block;padding:6px 16px;background:#1f6feb;color:#fff;font-size:13px;font-weight:600;border-radius:6px;border:1px solid transparent;text-decoration:none;transition:background 0.15s;" onmouseover="this.style.background='#388bfd'" onmouseout="this.style.background='#1f6feb'">Add to Slack</a>
     </span>`;
   }
 
