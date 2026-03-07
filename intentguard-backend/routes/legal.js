@@ -6,7 +6,32 @@ const router = express.Router();
 const PAGE_STYLE = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #e6edf3; line-height: 1.7; }
-  .content { max-width: 720px; margin: 0 auto; padding: 32px 24px 80px; }
+  @keyframes grid-scroll {
+    from { background-position: 0 0; }
+    to   { background-position: 0 40px; }
+  }
+  .page-hero {
+    padding: 60px 24px 48px;
+    background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(31,111,235,0.14) 0%, transparent 70%), #0d1117;
+    border-bottom: 1px solid #21262d;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .page-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(88,166,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(88,166,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: grid-scroll 4s linear infinite;
+    pointer-events: none;
+  }
+  .page-hero h1 { font-size: 32px; margin-bottom: 8px; position: relative; }
+  .page-hero .meta { color: #768390; font-size: 14px; position: relative; }
+  .content { max-width: 720px; margin: 0 auto; padding: 40px 24px 80px; }
   h1 { font-size: 28px; margin-bottom: 8px; }
   .meta { color: #768390; margin-bottom: 32px; font-size: 14px; }
   h2 { font-size: 18px; margin: 28px 0 12px; color: #e6edf3; }
@@ -30,10 +55,11 @@ router.get('/privacy', (req, res) => {
 </head>
 <body>
   ${buildNav('')}
-  <div class="content">
+  <div class="page-hero">
     <h1>Privacy Policy</h1>
     <p class="meta">Last updated: February 21, 2026</p>
-
+  </div>
+  <div class="content">
     <h2>What Intentify AI Does</h2>
     <p>Intentify AI is a data loss prevention (DLP) tool for Slack. When a user shares a file in a monitored channel, Intentify AI verifies that the file content matches the user's stated intent and is appropriate for the audience. It does this using a combination of regex-based heuristics and AI analysis.</p>
 
@@ -125,10 +151,11 @@ router.get('/support', (req, res) => {
 </head>
 <body>
   ${buildNav('')}
-  <div class="content">
+  <div class="page-hero">
     <h1>Support</h1>
     <p class="meta">We're here to help. Reach out through any of the channels below.</p>
-
+  </div>
+  <div class="content">
     <div class="card">
       <h3>Email Support</h3>
       <p>For general questions, bug reports, or feature requests:</p>
@@ -179,10 +206,11 @@ router.get('/terms', (req, res) => {
 </head>
 <body>
   ${buildNav('')}
-  <div class="content">
+  <div class="page-hero">
     <h1>Terms of Service</h1>
     <p class="meta">Last updated: March 3, 2026</p>
-
+  </div>
+  <div class="content">
     <h2>1. Acceptance of Terms</h2>
     <p>By installing, accessing, or using Intentify AI ("the Service"), you agree to be bound by these Terms of Service. If you are using the Service on behalf of an organization, you represent that you have authority to bind that organization to these terms.</p>
 
@@ -260,10 +288,11 @@ router.get('/sub-processors', (req, res) => {
 </head>
 <body>
   ${buildNav('')}
-  <div class="content">
+  <div class="page-hero">
     <h1>Sub-processors</h1>
     <p class="meta">Last updated: March 3, 2026</p>
-
+  </div>
+  <div class="content">
     <p>Intentify AI uses the following third-party sub-processors to deliver its service. We evaluate each sub-processor for security and privacy practices before engagement.</p>
 
     <h2>Current Sub-processors</h2>

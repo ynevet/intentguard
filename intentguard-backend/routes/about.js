@@ -55,11 +55,28 @@ router.get('/', (req, res) => {
     .section-sub { font-size: 16px; color: #8b949e; margin-bottom: 40px; max-width: 620px; line-height: 1.6; }
 
     /* ── Mission hero ── */
+    @keyframes grid-scroll {
+      from { background-position: 0 0; }
+      to   { background-position: 0 40px; }
+    }
     .mission {
       padding: 80px 24px 72px;
-      background: radial-gradient(ellipse 70% 60% at 50% -10%, rgba(31,111,235,0.1) 0%, transparent 70%), #0d1117;
+      background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(31,111,235,0.14) 0%, transparent 70%), #0d1117;
       border-bottom: 1px solid #21262d;
       text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .mission::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(88,166,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(88,166,255,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      animation: grid-scroll 4s linear infinite;
+      pointer-events: none;
     }
     .mission-logo {
       width: 80px;

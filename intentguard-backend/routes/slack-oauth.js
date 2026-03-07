@@ -205,7 +205,30 @@ router.get('/install', (req, res) => {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #e6edf3; }
-    .content { max-width: 520px; margin: 0 auto; padding: 80px 24px; text-align: center; }
+    @keyframes grid-scroll {
+      from { background-position: 0 0; }
+      to   { background-position: 0 40px; }
+    }
+    .content {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 80px 24px;
+      text-align: center;
+      position: relative;
+    }
+    .content::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(31,111,235,0.14) 0%, transparent 70%),
+        linear-gradient(rgba(88,166,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(88,166,255,0.04) 1px, transparent 1px);
+      background-size: auto, 40px 40px, 40px 40px;
+      animation: grid-scroll 4s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .content > * { position: relative; z-index: 1; }
     h1 { font-size: 28px; margin-bottom: 12px; }
     .subtitle { color: #8b949e; font-size: 16px; margin-bottom: 40px; }
     .error-toast { background: #da3633; color: #fff; padding: 10px 16px; border-radius: 6px; font-size: 14px; margin-bottom: 24px; display: inline-block; }
