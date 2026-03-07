@@ -986,36 +986,6 @@ router.get('/', (req, res) => {
     </div>
   </div>
 
-  <!-- ── The Blindspot ── -->
-  <section class="section">
-    <div class="section-label">The Problem</div>
-    <h2 class="section-title">Traditional DLP has a fatal blindspot</h2>
-    <p class="section-sub">Pattern matching catches SSNs and credit cards. It cannot catch someone attaching the wrong file — the most common incident of all.</p>
-    <div class="problem-split">
-      <div class="problem-col bad">
-        <div class="problem-col-label bad">Traditional DLP catches</div>
-        <ul>
-          <li>Social Security numbers</li>
-          <li>Credit card numbers</li>
-          <li>Regex keyword patterns</li>
-          <li>Known file signatures</li>
-        </ul>
-      </div>
-      <div class="problem-col good">
-        <div class="problem-col-label good">Intentify AI also catches</div>
-        <ul>
-          <li>Wrong file attached to a message</li>
-          <li>"Anonymized" docs with raw PII</li>
-          <li>Confidential data in public channels</li>
-          <li>Internal docs in Slack Connect channels</li>
-          <li>Sensitive screenshots and images</li>
-          <li>Links to sensitive files (Google Drive, Dropbox, OneDrive…)</li>
-          <li>Pastebin / Gist links containing secrets or credentials</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
   <!-- ══ LIVE DEMO SECTION ══ -->
   <div class="demo-section" id="live-demo">
     <div class="demo-inner">
@@ -1291,108 +1261,66 @@ router.get('/', (req, res) => {
   <!-- ── How it works ── -->
   <section class="section" id="how-it-works" style="border-top:1px solid #21262d;">
     <div class="section-label">How it works</div>
-    <h2 class="section-title">Three-axis verification, every message</h2>
-    <p class="section-sub">Intentify AI checks intent, content, and context simultaneously. Verdict in seconds, fully automated.</p>
+    <h2 class="section-title">Three checks. Every file. Seconds.</h2>
     <div class="axes-grid">
       <div class="axis-card intent">
         <div class="icon">💬</div>
         <h3>Intent</h3>
-        <p>What the user <em>says</em> the file is. We parse the message to understand the sender's stated purpose and expected content type.</p>
+        <p>What the sender <em>says</em> the file is.</p>
       </div>
       <div class="axis-card content">
         <div class="icon">🔍</div>
         <h3>Content</h3>
-        <p>What's <em>actually inside</em> the file. AI vision for images and screenshots; text extraction for PDFs, DOCX, XLSX, PPTX, and CSV.</p>
+        <p>What's <em>actually inside</em> — AI vision, text extraction, link analysis.</p>
       </div>
       <div class="axis-card context">
         <div class="icon">🌐</div>
         <h3>Context</h3>
-        <p>Whether the content is <em>appropriate for the audience</em>. Channel type, member count, external guests, and sensitivity level.</p>
+        <p>Whether it's <em>appropriate for the audience</em> — channel size, external guests.</p>
       </div>
     </div>
     <!-- animated pipeline -->
     <div class="pipeline-wrap">
       <div class="pipeline" id="pipeline">
         <div class="pipeline-step" data-step="0">
-          <div class="step-num">Step 1</div>
           <div class="step-icon">📤</div>
-          <div class="step-name">Message sent</div>
-          <div class="step-desc">User shares file in Slack</div>
+          <div class="step-name">File shared</div>
         </div>
         <div class="pipeline-step" data-step="1">
-          <div class="step-num">Step 2</div>
           <div class="step-icon">⚡</div>
           <div class="step-name">Pre-scan</div>
-          <div class="step-desc">Instant regex for CC, SSN, API keys</div>
         </div>
         <div class="pipeline-step" data-step="2">
-          <div class="step-num">Step 3</div>
           <div class="step-icon">🧠</div>
           <div class="step-name">AI analysis</div>
-          <div class="step-desc">Intent × Content × Context</div>
         </div>
         <div class="pipeline-step" data-step="3">
-          <div class="step-num">Step 4</div>
           <div class="step-icon">⚖️</div>
           <div class="step-name">Verdict</div>
-          <div class="step-desc">Match, mismatch, or uncertain</div>
         </div>
         <div class="pipeline-step outcome" data-step="4">
-          <div class="step-num">Mismatch</div>
           <div class="step-icon">🛑</div>
-          <div class="step-name">File removed</div>
-          <div class="step-desc">DM sent · re-send prompt</div>
+          <div class="step-name">Blocked + DM</div>
         </div>
       </div>
     </div>
-  </section>
-
-  <!-- ── Privacy ── -->
-  <section class="section" style="border-top:1px solid #21262d;">
-    <div class="section-label">Privacy &amp; Security</div>
-    <h2 class="section-title">Built privacy-first from day one</h2>
-    <p class="section-sub">Enterprise DLP without the enterprise data risk. Your files never leave the analysis pipeline.</p>
-    <div class="privacy-grid">
-      <div class="privacy-card">
-        <div class="privacy-icon">🔒</div>
-        <div><h3>Zero content retention</h3><p>File contents and message text are processed in-memory and immediately discarded. Only privacy-safe metadata (labels, scores) is stored. Never used for model training.</p></div>
-      </div>
-      <div class="privacy-card">
-        <div class="privacy-icon">✅</div>
-        <div><h3>Fail-open design</h3><p>Errors and uncertain results never block users. If the AI is unsure or a request fails, the file passes through. Zero workflow disruption.</p></div>
-      </div>
-      <div class="privacy-card">
-        <div class="privacy-icon">🏢</div>
-        <div><h3>Workspace isolation</h3><p>Each workspace's data is fully isolated. Analysis requests are stateless with no cross-workspace data exposure.</p></div>
-      </div>
-      <div class="privacy-card">
-        <div class="privacy-icon">🔍</div>
-        <div><h3>Full audit trail</h3><p>Every verdict is logged to your admin dashboard. Review evaluations, tune thresholds, and export compliance reports.</p></div>
-      </div>
-    </div>
+    <p style="text-align:center;color:#8b949e;font-size:13px;margin-top:20px;">🔒 Zero content retention &nbsp;&middot;&nbsp; ✅ Fail-open — never blocks workflows &nbsp;&middot;&nbsp; 🏢 Per-workspace isolation</p>
   </section>
 
   <!-- ── Comparison ── -->
   <section class="section" style="border-top:1px solid #21262d;">
-    <div class="section-label">Comparison</div>
-    <h2 class="section-title">Intentify AI vs Traditional DLP</h2>
-    <p class="section-sub">Not a replacement — a critical layer traditional DLP cannot provide.</p>
+    <div class="section-label">vs Traditional DLP</div>
+    <h2 class="section-title">The layer legacy tools can't provide</h2>
     <div class="comparison-wrap">
       <table class="comparison">
         <thead><tr><th>Capability</th><th>Intentify AI</th><th>Traditional DLP</th></tr></thead>
         <tbody>
           <tr><td>Setup time</td><td class="highlight">2 minutes</td><td>Days to weeks</td></tr>
-          <tr><td>Intent vs content verification</td><td class="yes">✓</td><td class="no">✗</td></tr>
-          <tr><td>PII pattern matching (CC, SSN, API keys)</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-          <tr><td>AI vision for images &amp; screenshots</td><td class="yes">✓</td><td class="no">✗</td></tr>
-          <tr><td>Channel audience awareness</td><td class="yes">✓</td><td class="no">✗</td></tr>
-          <tr><td>Slack Connect / external guest detection</td><td class="yes">✓</td><td class="no">✗</td></tr>
-          <tr><td>Shared link detection (Drive, Dropbox, OneDrive…)</td><td class="yes">✓</td><td class="no">✗</td></tr>
-          <tr><td>Pastebin / Gist secret exposure detection</td><td class="yes">✓</td><td class="no">✗</td></tr>
+          <tr><td>Intent vs content mismatch detection</td><td class="yes">✓</td><td class="no">✗</td></tr>
+          <tr><td>AI vision for screenshots &amp; images</td><td class="yes">✓</td><td class="no">✗</td></tr>
+          <tr><td>Channel audience &amp; Slack Connect awareness</td><td class="yes">✓</td><td class="no">✗</td></tr>
+          <tr><td>Shared link detection (Drive, Dropbox, Pastebin…)</td><td class="yes">✓</td><td class="no">✗</td></tr>
           <tr><td>Content retained after analysis</td><td class="highlight">Never</td><td>Stored</td></tr>
-          <tr><td>Agent or policy deployment required</td><td class="highlight">None</td><td>Required</td></tr>
-          <tr><td>Auth</td><td class="highlight">Sign in with Slack</td><td>Separate portal</td></tr>
-          <tr><td>Pricing</td><td class="highlight">Free</td><td>Per-seat licensing</td></tr>
         </tbody>
       </table>
     </div>
@@ -1401,8 +1329,8 @@ router.get('/', (req, res) => {
   <!-- ── Pricing ── -->
   <section class="section" style="border-top:1px solid #21262d;">
     <div class="section-label">Pricing</div>
-    <h2 class="section-title">Simple pricing. No per-seat fees.</h2>
-    <p class="section-sub">You own your infrastructure. You only pay for your OpenAI API usage.</p>
+    <h2 class="section-title">Free to start. No per-seat fees.</h2>
+    <p class="section-sub">Self-hosted. You only pay for your OpenAI API usage (~$0.002–$0.01 per scan).</p>
     <div class="pricing-grid">
       <div class="pricing-card featured">
         <div class="pricing-badge">Available now</div>
@@ -1410,25 +1338,20 @@ router.get('/', (req, res) => {
         <div class="pricing-price">Free</div>
         <div class="pricing-note">Self-hosted, forever</div>
         <ul>
-          <li>All detection features</li><li>Unlimited workspaces</li>
-          <li>Admin dashboard</li><li>Evaluation history</li>
-          <li>90-day retention</li><li>Community support</li>
+          <li>All detection features</li>
+          <li>Unlimited workspaces</li>
+          <li>Admin dashboard &amp; history</li>
+          <li>Community support</li>
         </ul>
         <a class="btn btn-primary" href="/slack/oauth/install">Add to Slack</a>
       </div>
       <div class="pricing-card">
         <div class="pricing-name">Pro</div>
         <div class="pricing-price">Coming soon</div>
-        <div class="pricing-note">Everything in Community, plus:</div>
-        <ul>
-          <li>Priority support &amp; SLA</li><li>Custom retention policies</li>
-          <li>Audit log export (CSV/JSON)</li><li>Dedicated onboarding</li>
-          <li>Custom alert thresholds</li><li>Compliance reports</li>
-        </ul>
-        <a class="btn btn-secondary" href="mailto:sales@intentify.tech">Join waitlist</a>
+        <div class="pricing-note">Community + priority support, audit exports, compliance reports, custom policies.</div>
+        <a class="btn btn-secondary" href="#contact">Join waitlist</a>
       </div>
     </div>
-    <p class="pricing-footnote">Intentify AI is self-hosted. Typical OpenAI API cost: $0.002–$0.01 per file scanned.</p>
   </section>
 
   <!-- ── Contact ── -->
