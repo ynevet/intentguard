@@ -1432,13 +1432,7 @@ router.get('/', (req, res) => {
   </section>
 
   <!-- ── Contact ── -->
-  <section class="section" style="border-top:1px solid #21262d;">
-    ${thanks ? `
-    <div class="section-label">Thank you</div>
-    <h2 class="section-title">We'll be in touch!</h2>
-    <p class="section-sub">We received your message and will respond within one business day.</p>
-    <a class="btn btn-secondary" href="/features">← Back</a>
-    ` : `
+  <section class="section" id="contact" style="border-top:1px solid #21262d;">
     <div class="contact-grid">
       <div class="contact-info">
         <div class="section-label">Get in touch</div>
@@ -1452,18 +1446,48 @@ router.get('/', (req, res) => {
         </ul>
       </div>
       <div>
-        <form method="POST" action="/features/contact">
-          <div class="form-row">
-            <div class="form-group"><label for="name">Name *</label><input type="text" id="name" name="name" required maxlength="100" placeholder="Your name"></div>
-            <div class="form-group"><label for="email">Work email *</label><input type="email" id="email" name="email" required maxlength="200" placeholder="you@company.com"></div>
-          </div>
-          <div class="form-group"><label for="company">Company</label><input type="text" id="company" name="company" maxlength="200" placeholder="Your company"></div>
-          <div class="form-group"><label for="message">Message</label><textarea id="message" name="message" maxlength="1000" rows="4" placeholder="Tell us about your use case..."></textarea></div>
-          <button type="submit" class="btn btn-primary">Send message</button>
-        </form>
+        <!-- Form wrapper — JS swaps this for success state -->
+        <div id="contactFormWrap">
+          <form id="contactForm" method="POST" action="/features/contact" novalidate>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="cf_name">Name *</label>
+                <input type="text" id="cf_name" name="name" required maxlength="100" placeholder="Your name"
+                  autocomplete="name" value="${thanks ? '' : (req.query.name || '')}">
+              </div>
+              <div class="form-group">
+                <label for="cf_email">Work email *</label>
+                <input type="email" id="cf_email" name="email" required maxlength="200" placeholder="you@company.com"
+                  autocomplete="email" value="${thanks ? '' : (req.query.email || '')}">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="cf_company">Company</label>
+              <input type="text" id="cf_company" name="company" maxlength="200" placeholder="Your company"
+                autocomplete="organization" value="${thanks ? '' : (req.query.company || '')}">
+            </div>
+            <div class="form-group">
+              <label for="cf_message">Message</label>
+              <textarea id="cf_message" name="message" maxlength="1000" rows="4"
+                placeholder="Tell us about your use case..."></textarea>
+            </div>
+            <!-- Inline error banner (hidden by default) -->
+            <div id="cfError" style="display:none;background:#3d1a1a;border:1px solid #f85149;color:#f85149;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:12px;"></div>
+            <button type="submit" id="cfSubmit" class="btn btn-primary" style="min-width:140px;">
+              <span id="cfBtnLabel">Send message</span>
+              <span id="cfBtnSpinner" style="display:none;">Sending…</span>
+            </button>
+          </form>
+        </div>
+        <!-- Success state (hidden until submission) -->
+        <div id="contactSuccess" style="display:none;background:#0d2119;border:1px solid #238636;border-radius:10px;padding:32px 28px;text-align:center;">
+          <div style="font-size:36px;margin-bottom:12px;">✅</div>
+          <h3 style="color:#3fb950;margin:0 0 8px;font-size:18px;">You're on the list!</h3>
+          <p style="color:#8b949e;font-size:14px;margin:0;">We received your details and will be in touch within one business day.</p>
+        </div>
       </div>
     </div>
-    `}
+    ${thanks ? `<script>document.getElementById('contactFormWrap').style.display='none';document.getElementById('contactSuccess').style.display='block';</script>` : ''}
   </section>
 
   <!-- ── CTA ── -->
@@ -1773,6 +1797,88 @@ router.get('/', (req, res) => {
     }, { threshold: 0.3 });
     obs.observe(document.getElementById('pipeline'));
   })();
+
+  /* ── Contact form AJAX submit ── */
+  (function () {
+    const form    = document.getElementById('contactForm');
+    const wrap    = document.getElementById('contactFormWrap');
+    const success = document.getElementById('contactSuccess');
+    const errBox  = document.getElementById('cfError');
+    const submit  = document.getElementById('cfSubmit');
+    const btnLbl  = document.getElementById('cfBtnLabel');
+    const spinner = document.getElementById('cfBtnSpinner');
+    if (!form) return;
+
+    function showError(msg) {
+      errBox.textContent = msg;
+      errBox.style.display = 'block';
+      submit.disabled = false;
+      btnLbl.style.display = '';
+      spinner.style.display = 'none';
+    }
+
+    function clearError() {
+      errBox.style.display = 'none';
+      errBox.textContent = '';
+    }
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      clearError();
+
+      // Client-side validation
+      const name  = form.name.value.trim();
+      const email = form.email.value.trim();
+      if (!name)  { form.name.focus();  return showError('Please enter your name.'); }
+      if (!email) { form.email.focus(); return showError('Please enter your work email.'); }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        form.email.focus();
+        return showError('Please enter a valid email address.');
+      }
+
+      // Loading state
+      submit.disabled = true;
+      btnLbl.style.display = 'none';
+      spinner.style.display = '';
+
+      try {
+        const body = new URLSearchParams(new FormData(form)).toString();
+        const res  = await fetch('/features/contact', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+          body,
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok && data.ok) {
+          // Smooth swap to success state
+          wrap.style.transition = 'opacity 0.3s';
+          wrap.style.opacity = '0';
+          setTimeout(function () {
+            wrap.style.display = 'none';
+            success.style.display = 'block';
+            success.style.opacity = '0';
+            success.style.transition = 'opacity 0.3s';
+            requestAnimationFrame(function () { success.style.opacity = '1'; });
+          }, 300);
+        } else if (res.status === 429) {
+          showError('Too many submissions. Please try again in an hour.');
+        } else if (data.error) {
+          showError(data.error);
+        } else {
+          showError('Something went wrong. Please try again.');
+        }
+      } catch (_) {
+        // Network error — fall back to standard form submit
+        form.submit();
+      }
+    });
+
+    // Clear error on input change
+    form.querySelectorAll('input, textarea').forEach(function (el) {
+      el.addEventListener('input', clearError);
+    });
+  })();
   </script>
 
 </body>
@@ -1780,14 +1886,20 @@ router.get('/', (req, res) => {
 });
 
 router.post('/contact', express.urlencoded({ extended: false }), async (req, res) => {
+  const isAjax = (req.headers.accept || '').includes('application/json');
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress || 'unknown';
+
+  function fail(status, msg, redirectUrl) {
+    if (isAjax) return res.status(status).json({ ok: false, error: msg });
+    return res.redirect(redirectUrl || '/features');
+  }
 
   // Rate limiting
   const now = Date.now();
   const entry = submissions.get(ip);
   if (entry && now - entry.windowStart < RATE_WINDOW_MS) {
     if (entry.count >= RATE_LIMIT) {
-      return res.redirect('/features?error=rate_limit');
+      return fail(429, 'Too many submissions. Please try again in an hour.', '/features?error=rate_limit');
     }
     entry.count++;
   } else {
@@ -1798,19 +1910,20 @@ router.post('/contact', express.urlencoded({ extended: false }), async (req, res
 
   // Validation
   if (!name || !email || typeof name !== 'string' || typeof email !== 'string') {
-    return res.redirect('/features');
+    return fail(400, 'Name and email are required.');
   }
+  if (name.trim().length === 0) return fail(400, 'Please enter your name.');
   if (name.length > 100 || email.length > 200) {
-    return res.redirect('/features');
+    return fail(400, 'Input too long.');
   }
   if (company && String(company).length > 200) {
-    return res.redirect('/features');
+    return fail(400, 'Company name too long.');
   }
   if (message && String(message).length > 1000) {
-    return res.redirect('/features');
+    return fail(400, 'Message too long (max 1000 characters).');
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.redirect('/features');
+    return fail(400, 'Please enter a valid email address.');
   }
 
   const ipHash = crypto.createHash('sha256').update(ip).digest('hex');
@@ -1819,8 +1932,10 @@ router.post('/contact', express.urlencoded({ extended: false }), async (req, res
     await saveLead({ name: name.trim(), email: email.trim(), company: company?.trim(), message: message?.trim(), ipHash, source: 'features' });
   } catch (err) {
     logger.error({ err }, 'Failed to save lead');
+    // Still succeed from the user's perspective — don't expose DB errors
   }
 
+  if (isAjax) return res.json({ ok: true });
   res.redirect('/features?thanks=1');
 });
 
