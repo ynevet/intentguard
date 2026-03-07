@@ -1,10 +1,61 @@
 const express = require('express');
 const { pool, getSetting, setSetting } = require('../lib/db');
+const { getSlackClient } = require('../lib/slack-client');
 const { buildNav } = require('../lib/nav');
 const logger = require('../lib/logger');
 
 const router = express.Router();
 const DEFAULT_PAGE_SIZE = 25;
+
+// ── Name resolution cache (in-process, 10 min TTL) ───────────────────
+const _nameCache = new Map(); // key: `${workspaceId}:user:${id}` | `${workspaceId}:channel:${id}`
+const NAME_CACHE_TTL = 10 * 60 * 1000;
+
+async function resolveSlackName(workspaceId, type, id) {
+  if (!id || id === '—') return id;
+  const key = `${workspaceId}:${type}:${id}`;
+  const cached = _nameCache.get(key);
+  if (cached && Date.now() - cached.ts < NAME_CACHE_TTL) return cached.name;
+
+  try {
+    const client = await getSlackClient(workspaceId);
+    if (!client) return id;
+
+    let name = id;
+    if (type === 'user') {
+      const res = await client.users.info({ user: id });
+      name = res.user?.real_name || res.user?.name || id;
+    } else if (type === 'channel') {
+      const res = await client.conversations.info({ channel: id });
+      name = res.channel?.name ? `#${res.channel.name}` : id;
+    } else if (type === 'workspace') {
+      const res = await client.team.info();
+      name = res.team?.name || id;
+    }
+    _nameCache.set(key, { name, ts: Date.now() });
+    return name;
+  } catch {
+    return id; // fall back to raw ID silently
+  }
+}
+
+async function resolveNames(rows, workspaceId, isSuperAdmin) {
+  // Collect unique IDs per workspace to batch-resolve
+  const workspaceIds = isSuperAdmin ? [...new Set(rows.map((r) => r.workspace_id))] : [workspaceId];
+  await Promise.all(
+    rows.map(async (r) => {
+      const wsId = isSuperAdmin ? r.workspace_id : workspaceId;
+      const [wsName, userName, channelName] = await Promise.all([
+        isSuperAdmin ? resolveSlackName(wsId, 'workspace', wsId) : Promise.resolve(null),
+        resolveSlackName(wsId, 'user', r.slack_user),
+        resolveSlackName(wsId, 'channel', r.slack_channel),
+      ]);
+      r._workspace_name  = wsName;
+      r._user_name       = userName;
+      r._channel_name    = channelName;
+    }),
+  );
+}
 
 function escapeHtml(str) {
   if (str == null) return '';
@@ -108,6 +159,9 @@ router.get('/evaluations', async (req, res) => {
     const total = rows.length > 0 ? parseInt(rows[0]._total, 10) : 0;
     const totalPages = Math.max(1, Math.ceil(total / limit));
 
+    // Resolve Slack IDs → human-readable names (cached, non-blocking on error)
+    await resolveNames(rows, req.workspaceId, isSuperAdmin);
+
     const tableRows = rows.map((r) => {
       const files = JSON.parse(JSON.stringify(r.files_analyzed || []));
       const filesSummary = files.map((f) => {
@@ -123,12 +177,22 @@ router.get('/evaluations', async (req, res) => {
       const ctxColor = ctxColors[ctxRisk] || '#768390';
       const ctxBadge = `<span style="background:${ctxColor};color:#fff;padding:2px 8px;border-radius:4px;font-size:13px;">${escapeHtml(ctxRisk)}</span>`;
 
+      const wsDisplay      = r._workspace_name && r._workspace_name !== r.workspace_id
+        ? `<span title="${escapeHtml(r.workspace_id)}">${escapeHtml(r._workspace_name)}</span>`
+        : escapeHtml(r.workspace_id);
+      const userDisplay    = r._user_name && r._user_name !== r.slack_user
+        ? `<span title="${escapeHtml(r.slack_user)}">${escapeHtml(r._user_name)}</span>`
+        : escapeHtml(r.slack_user);
+      const channelDisplay = r._channel_name && r._channel_name !== r.slack_channel
+        ? `<span title="${escapeHtml(r.slack_channel)}">${escapeHtml(r._channel_name)}</span>`
+        : escapeHtml(r.slack_channel);
+
       return `<tr>
         <td>${r.id}</td>
         <td>${created}</td>
-        <td>${escapeHtml(r.workspace_id)}</td>
-        <td>${escapeHtml(r.slack_user)}</td>
-        <td>${escapeHtml(r.slack_channel)}</td>
+        <td>${isSuperAdmin ? wsDisplay : wsDisplay}</td>
+        <td>${userDisplay}</td>
+        <td>${channelDisplay}</td>
         <td>${matchBadge(r.match)}</td>
         <td>${Math.round(r.confidence * 100)}%</td>
         <td>${ctxBadge}</td>
