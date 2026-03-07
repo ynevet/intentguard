@@ -458,7 +458,8 @@ router.get('/', (req, res) => {
     if (src) {
       var val = [src, params.get('utm_medium'), params.get('utm_campaign'), params.get('utm_content')].filter(Boolean).join('|');
       var exp = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
-      document.cookie = 'ig_utm=' + encodeURIComponent(val) + '; expires=' + exp + '; path=/; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}';
+      var secure = ${process.env.NODE_ENV === 'production' ? 'true' : 'false'};
+      document.cookie = 'ig_utm=' + encodeURIComponent(val) + '; expires=' + exp + '; path=/; SameSite=Lax' + (secure ? '; Secure' : '');
     }
   })();
 

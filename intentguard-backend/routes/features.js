@@ -1845,7 +1845,8 @@ router.get('/', async (req, res) => {
     if (src) {
       var val = [src, med, cmp, cnt].filter(Boolean).join('|');
       var exp = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
-      document.cookie = 'ig_utm=' + encodeURIComponent(val) + '; expires=' + exp + '; path=/; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}';
+      var secure = ${process.env.NODE_ENV === 'production' ? 'true' : 'false'};
+      document.cookie = 'ig_utm=' + encodeURIComponent(val) + '; expires=' + exp + '; path=/; SameSite=Lax' + (secure ? '; Secure' : '');
     }
   })();
 
