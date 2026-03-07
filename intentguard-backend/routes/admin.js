@@ -29,8 +29,9 @@ async function resolveSlackName(workspaceId, type, id) {
       const res = await client.conversations.info({ channel: id });
       name = res.channel?.name ? `#${res.channel.name}` : id;
     } else if (type === 'workspace') {
-      const res = await client.team.info();
-      name = res.team?.name || id;
+      // team:read scope is not in our bot scopes — read team_name from DB instead
+      const { rows } = await pool.query('SELECT team_name FROM workspaces WHERE id = $1', [id]);
+      name = rows[0]?.team_name || id;
     }
     _nameCache.set(key, { name, ts: Date.now() });
     return name;
