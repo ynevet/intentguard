@@ -156,11 +156,18 @@ async function reactToAssessment(event, assessment, workspaceId = 'default', eva
 async function processEvent(payload) {
   const event = payload.event;
 
-  // Resolve workspace from team_id: DB lookup first, fall back to 'default' if env vars set
+  // Resolve workspace from team_id: DB lookup first, fall back to 'default' if env vars set.
+  // Retry once after 1s to handle the race where a brand-new workspace sends its first event
+  // before the OAuth callback DB write has propagated (especially on Supabase).
   let workspaceId = 'default';
   const teamId = payload.team_id;
   if (teamId) {
-    const workspace = await getWorkspace(teamId);
+    let workspace = await getWorkspace(teamId);
+    if (!workspace) {
+      // Single retry after short delay for brand-new workspaces
+      await new Promise((r) => setTimeout(r, 1000));
+      workspace = await getWorkspace(teamId);
+    }
     if (workspace) {
       workspaceId = teamId;
     } else if (!process.env.SLACK_BOT_TOKEN) {

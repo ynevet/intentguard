@@ -379,10 +379,10 @@ authRouter.get('/callback', async (req, res) => {
       throw new Error('Missing team_id or user_id from Slack');
     }
 
-    // Check workspace exists in our DB (must have installed Intentify AI)
+    // Check workspace exists and is active in our DB (must have installed Intentify AI)
     const workspace = await getWorkspace(teamId);
-    if (!workspace) {
-      logger.warn({ teamId, userId }, 'Sign-in attempt from workspace without Intentify AI');
+    if (!workspace || workspace.status !== 'active') {
+      logger.warn({ teamId, userId, status: workspace?.status }, 'Sign-in attempt from workspace without active Intentify AI install');
       return res.send(errorPage(
         'Workspace not found',
         'Your workspace hasn\'t installed Intentify AI yet. Ask a workspace admin to <a href="/slack/oauth/install" style="color:#58a6ff;">install it first</a>.',

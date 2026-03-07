@@ -423,7 +423,7 @@ async function upsertWorkspace({ id, name, platform = 'slack', status = 'active'
        user_token = COALESCE(EXCLUDED.user_token, workspaces.user_token),
        bot_user_id = COALESCE(EXCLUDED.bot_user_id, workspaces.bot_user_id),
        team_name = COALESCE(EXCLUDED.team_name, workspaces.team_name),
-       installed_at = now()`,
+       installed_at = COALESCE(workspaces.installed_at, now())`,
     [id, name, platform, status, botToken || null, userToken || null, botUserId || null, teamName || null],
   );
 }
@@ -451,12 +451,13 @@ async function seedWorkspaceSettings(workspaceId) {
     ['slack.auto_join_channels', 'true'],
     ['slack.excluded_channels', ''],
   ];
-  for (const [key, value] of defaults) {
-    await pool.query(
-      'INSERT INTO settings (workspace_id, key, value) VALUES ($1, $2, $3) ON CONFLICT (workspace_id, key) DO NOTHING',
-      [workspaceId, key, value],
-    );
-  }
+  // Single batch INSERT — faster and atomic
+  const values = defaults.map((_, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`).join(', ');
+  const params = [workspaceId, ...defaults.flat()];
+  await pool.query(
+    `INSERT INTO settings (workspace_id, key, value) VALUES ${values} ON CONFLICT (workspace_id, key) DO NOTHING`,
+    params,
+  );
 }
 
 async function saveLead({ name, email, company, message, ipHash, source }) {

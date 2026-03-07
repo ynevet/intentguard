@@ -122,19 +122,25 @@ router.get('/callback', async (req, res) => {
       teamName,
     });
 
-    // Seed default settings for new workspace
-    await seedWorkspaceSettings(teamId);
+    // Seed default settings for new workspace (best-effort — don't fail install on seed error)
+    try {
+      await seedWorkspaceSettings(teamId);
+    } catch (seedErr) {
+      logger.error({ err: seedErr, teamId }, 'Failed to seed workspace settings — workspace still active');
+    }
 
     // Clear cached clients so new tokens take effect
     invalidateClientCache(teamId);
 
     logger.info({ teamId, teamName, botUserId }, 'Slack workspace installed via OAuth');
 
-    // Auto-sign-in: the installing user is almost certainly a workspace admin
+    // Auto-sign-in: the installing user is almost certainly a workspace admin.
+    // Use a fresh WebClient with the bot token directly (avoids DB cache race condition
+    // where getSlackClient might read a stale/empty row immediately after upsert).
     const authedUserId = result.authed_user?.id;
     if (authedUserId) {
       try {
-        const client = await getSlackClient(teamId);
+        const client = new WebClient(botToken);
         const userInfoResult = await client.users.info({ user: authedUserId });
         const isAdmin = userInfoResult.user?.is_admin || userInfoResult.user?.is_owner;
 
