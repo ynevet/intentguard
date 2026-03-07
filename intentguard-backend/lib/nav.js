@@ -58,13 +58,48 @@ function buildNav(activePage, session) {
     </span>`;
   }
 
-  return `<nav style="background:#161b22;border-bottom:1px solid #21262d;padding:12px 24px;display:flex;align-items:center;gap:20px;">
-  <a href="/" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:#e6edf3;font-weight:700;font-size:16px;">
-    <img src="/public/logo.png" alt="Intentify AI" style="height:28px;width:28px;">Intentify AI
-  </a>
-  ${publicLinks}
-  ${authLinks}
-  ${rightSection}
+  const navId = `nav_${Math.random().toString(36).slice(2,8)}`;
+  return `<nav id="${navId}" style="background:#161b22;border-bottom:1px solid #21262d;padding:0;position:relative;z-index:100;">
+  <div style="display:flex;align-items:center;gap:16px;padding:12px 20px;">
+    <a href="/" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:#e6edf3;font-weight:700;font-size:16px;flex-shrink:0;">
+      <img src="/public/logo.png" alt="Intentify AI" style="height:28px;width:28px;">Intentify AI
+    </a>
+
+    <!-- Desktop links (hidden on mobile) -->
+    <span class="nav-desktop-links" style="display:flex;align-items:center;gap:16px;flex:1;">
+      ${publicLinks}
+      ${authLinks}
+    </span>
+
+    <!-- Desktop right section -->
+    <span class="nav-desktop-right" style="margin-left:auto;">
+      ${rightSection}
+    </span>
+
+    <!-- Hamburger button (mobile only) -->
+    <button id="${navId}_btn" onclick="(function(){var m=document.getElementById('${navId}_menu');var b=document.getElementById('${navId}_btn');var open=m.style.display==='flex';m.style.display=open?'none':'flex';b.setAttribute('aria-expanded',!open);})()" aria-label="Open menu" aria-expanded="false" style="display:none;margin-left:auto;background:none;border:1px solid #30363d;border-radius:6px;padding:6px 9px;cursor:pointer;color:#e6edf3;font-size:18px;line-height:1;flex-shrink:0;">&#9776;</button>
+  </div>
+
+  <!-- Mobile dropdown menu (hidden by default) -->
+  <div id="${navId}_menu" style="display:none;flex-direction:column;gap:0;background:#161b22;border-top:1px solid #21262d;padding:8px 20px 16px;">
+    ${publicLinks.replace(/style="([^"]*)"/g, 'style="$1padding:10px 0;display:block;border-bottom:1px solid #21262d;"')}
+    ${authLinks ? authLinks.replace(/style="([^"]*)"/g, 'style="$1padding:10px 0;display:block;border-bottom:1px solid #21262d;"') : ''}
+    <div style="padding-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+      ${isAuthenticated
+        ? `<a href="/admin/login/logout" style="color:#8b949e;text-decoration:none;font-size:13px;">Logout</a>`
+        : `<a href="/admin/login" style="display:inline-block;padding:7px 16px;background:transparent;color:#e6edf3;font-size:13px;font-weight:600;border-radius:6px;border:1px solid #30363d;text-decoration:none;">Sign in</a>
+           <a href="/slack/oauth/install" style="display:inline-block;padding:7px 16px;background:#1f6feb;color:#fff;font-size:13px;font-weight:600;border-radius:6px;text-decoration:none;">Add to Slack</a>`
+      }
+    </div>
+  </div>
+
+  <style>
+    @media (max-width: 720px) {
+      .nav-desktop-links { display: none !important; }
+      .nav-desktop-right  { display: none !important; }
+      #${navId}_btn        { display: block !important; }
+    }
+  </style>
 </nav>`;
 }
 

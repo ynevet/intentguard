@@ -258,6 +258,91 @@ router.get('/', (req, res) => {
     .footer a { color: #484f58; text-decoration: none; }
     .footer a:hover { color: #8b949e; }
     .footer-links { margin-top: 8px; display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+
+    /* ══════════════════════════════════════════
+       RESPONSIVE — MOBILE
+    ══════════════════════════════════════════ */
+
+    @media (max-width: 768px) {
+      /* Mission hero */
+      .mission { padding: 56px 20px 52px; }
+      .mission-logo { width: 64px; height: 64px; margin-bottom: 20px; border-radius: 14px; }
+      .mission-sub { font-size: 16px; }
+      .mission-actions .btn { padding: 11px 22px; font-size: 14px; }
+
+      /* Sections */
+      .section { padding: 52px 20px; }
+      .section-title { font-size: 26px; }
+      .section-sub { font-size: 15px; margin-bottom: 28px; }
+
+      /* Numbers */
+      .number-cell { padding: 24px 18px; }
+      .number-cell .big { font-size: 34px; }
+
+      /* Explain block */
+      .explain-block { padding: 22px 20px; font-size: 14px; }
+
+      /* vs-badge wraps gracefully */
+      .vs-badge { flex-wrap: wrap; gap: 6px; font-size: 13px; }
+
+      /* 3-Axis */
+      .axes-grid { gap: 0; } /* already 2px, fine */
+      .axis-cell { padding: 22px 18px; }
+      .axis-cell .icon { font-size: 24px; }
+      .axis-cell h3 { font-size: 15px; }
+      .axis-cell p { font-size: 13px; }
+
+      /* Why different */
+      .diff-grid { gap: 12px; }
+      .diff-card { padding: 18px; }
+      .diff-card h3 { font-size: 14px; }
+      .diff-card p { font-size: 13px; }
+
+      /* Tech stack */
+      .stack-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+      .stack-item { padding: 14px; }
+      .stack-name { font-size: 12px; }
+      .stack-desc { font-size: 11px; }
+
+      /* Roadmap */
+      .roadmap-list li { gap: 12px; font-size: 13px; flex-wrap: wrap; }
+      .road-status { margin-top: 0; }
+
+      /* CTA */
+      .cta { padding: 60px 20px; }
+      .cta h2 { font-size: 26px; }
+      .cta p { font-size: 15px; }
+    }
+
+    @media (max-width: 480px) {
+      .mission { padding: 44px 16px 44px; }
+      .mission-logo { width: 56px; height: 56px; }
+      .mission-actions { flex-direction: column; align-items: stretch; gap: 10px; }
+      .mission-actions .btn { text-align: center; }
+
+      .section { padding: 44px 16px; }
+      .section-title { font-size: 22px; }
+      .section-sub { font-size: 14px; }
+
+      .number-cell .big { font-size: 30px; }
+      .explain-block { padding: 18px 16px; font-size: 13px; }
+
+      /* vs-badge stacks vertically */
+      .vs-badge { flex-direction: column; align-items: flex-start; gap: 4px; }
+
+      /* Roadmap — status badge above text on very small screens */
+      .roadmap-list li { flex-direction: column; gap: 6px; }
+
+      /* Stack grid 2 cols */
+      .stack-grid { grid-template-columns: repeat(2, 1fr); }
+
+      .cta { padding: 48px 16px; }
+      .cta h2 { font-size: 22px; }
+      .cta-actions { flex-direction: column; align-items: stretch; gap: 10px; }
+      .cta-actions .btn { text-align: center; }
+
+      .video-wrap { margin: 24px auto 0; }
+    }
   </style>
 </head>
 <body>
