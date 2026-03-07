@@ -97,18 +97,21 @@ async function reactToAssessment(event, assessment, workspaceId = 'default', eva
     }
 
     if (assessment.match === 'mismatch') {
-      // 1. Silently delete the mismatched files from Slack
-      //    Requires the user-token client (user_token with files:write scope)
-      //    because bot tokens can only delete files the bot itself uploaded.
-      if (event.files && event.files.length > 0) {
+      // Separate native files (can be deleted) from link-only findings (cannot be deleted)
+      const nativeFiles = (event.files || []).filter((f) => !f._isLink && f.id);
+      const linkFiles = assessment.filesAnalyzed.filter((f) => f.method === 'link-metadata');
+      const hasNativeFiles = nativeFiles.length > 0;
+      const hasLinkOnly = linkFiles.length > 0 && !hasNativeFiles;
+
+      // 1. Delete native mismatched files (not links — those are just message text)
+      if (hasNativeFiles) {
         if (!userClient) {
           logger.warn('No user token configured — cannot delete user-uploaded files');
         } else {
-          for (const file of event.files) {
+          for (const file of nativeFiles) {
             try {
               await userClient.files.delete({ file: file.id });
               logger.info({ fileId: file.id, fileName: file.name, channel: event.channel, user: event.user }, 'Deleted mismatched file');
-              // Track file deletion action
               if (evaluationId) {
                 recordEvent(evaluationId, workspaceId, 'file_deleted', { fileId: file.id, fileName: file.name });
               }
@@ -119,15 +122,19 @@ async function reactToAssessment(event, assessment, workspaceId = 'default', eva
         }
       }
 
-      // 2. DM the sender with full reasoning (always, even if delete failed)
+      // 2. DM the sender — wording differs for link-only vs file mismatch
       try {
         const dm = await client.conversations.open({ users: event.user });
-        const dmMsg = await client.chat.postMessage({
-          channel: dm.channel.id,
-          text: `:no_entry_sign: *Intentify AI — File removed* (${confidencePct}% confidence)\n\nA file you shared in <#${event.channel}> was removed because it may not match what you described.\n\n*Reasoning:*\n${assessment.reasoning}${contextRiskLabel}\n\n*Files removed:*\n${fileDetails}`,
-        });
-        logger.info({ user: event.user, channel: event.channel }, 'Sent mismatch DM to user');
-        // Track DM sent action
+        let dmText;
+        if (hasLinkOnly) {
+          // Link flagged — nothing deleted, just a warning
+          dmText = `:warning: *Intentify AI — Link flagged* (${confidencePct}% confidence)\n\nA link you shared in <#${event.channel}> may not match what you described, or may be inappropriate for that channel.\n\n*Reasoning:*\n${assessment.reasoning}${contextRiskLabel}\n\n*Flagged links:*\n${fileDetails}\n\n_The link was not removed. Please verify the content is appropriate before sharing._`;
+        } else {
+          // Native file deleted
+          dmText = `:no_entry_sign: *Intentify AI — File removed* (${confidencePct}% confidence)\n\nA file you shared in <#${event.channel}> was removed because it may not match what you described.\n\n*Reasoning:*\n${assessment.reasoning}${contextRiskLabel}\n\n*Files removed:*\n${fileDetails}`;
+        }
+        await client.chat.postMessage({ channel: dm.channel.id, text: dmText });
+        logger.info({ user: event.user, channel: event.channel, hasLinkOnly }, 'Sent mismatch DM to user');
         if (evaluationId) {
           recordEvent(evaluationId, workspaceId, 'dm_sent', { user: event.user, channel: event.channel });
         }
