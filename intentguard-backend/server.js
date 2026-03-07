@@ -128,13 +128,30 @@ app.get('/', (req, res, next) => {
       color: #e6edf3;
       line-height: 1.6;
     }
+    @keyframes grid-scroll {
+      from { background-position: 0 0; }
+      to   { background-position: 0 40px; }
+    }
     .hero {
       text-align: center;
       padding: 100px 24px 60px;
-      background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
+      background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(31,111,235,0.14) 0%, transparent 70%), #0d1117;
+      position: relative;
+      overflow: hidden;
     }
-    .hero img { height: 80px; width: 80px; margin-bottom: 24px; }
-    .hero h1 { font-size: 48px; font-weight: 700; margin-bottom: 16px; }
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(88,166,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(88,166,255,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      animation: grid-scroll 4s linear infinite;
+      pointer-events: none;
+    }
+    .hero img { height: 80px; width: 80px; margin-bottom: 24px; position: relative; }
+    .hero h1 { font-size: 48px; font-weight: 700; margin-bottom: 16px; position: relative; }
     .hero h1 span {
       background: linear-gradient(135deg, #58a6ff, #3fb950);
       -webkit-background-clip: text;
@@ -142,12 +159,14 @@ app.get('/', (req, res, next) => {
       background-clip: text;
     }
     .hero .tagline {
+      position: relative;
       font-size: 20px;
       color: #8b949e;
       max-width: 600px;
       margin: 0 auto 48px;
     }
     .nav-cards {
+      position: relative;
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       gap: 20px;
