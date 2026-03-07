@@ -467,19 +467,56 @@ router.get('/', (req, res) => {
   (function () {
     if (sessionStorage.getItem('ig_exit_shown')) return;
     if (window.innerWidth < 768) return;
+
+    var isRet = ${isReturning ? 'true' : 'false'};
+
     var overlay = document.createElement('div');
     overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;';
-    var isRet = ${isReturning ? 'true' : 'false'};
-    overlay.innerHTML = '<div style="background:#161b22;border:1px solid #30363d;border-radius:16px;padding:40px 36px;max-width:480px;width:90%;text-align:center;position:relative;">' +
-      '<button onclick="this.closest(\'[style*=fixed]\').style.display=\'none\'" style="position:absolute;top:14px;right:16px;background:none;border:none;color:#8b949e;font-size:20px;cursor:pointer;line-height:1;">&times;</button>' +
-      '<div style="font-size:28px;margin-bottom:16px;">🛡️</div>' +
-      '<h2 style="font-size:20px;font-weight:700;margin-bottom:10px;color:#e6edf3;">' + (isRet ? 'Still thinking it over?' : 'Ready to close the blindspot?') + '</h2>' +
-      '<p style="font-size:14px;color:#8b949e;margin-bottom:28px;line-height:1.6;">One-click Slack install. No agents, no policies, no credit card. Starts protecting in 2 minutes.</p>' +
-      '<a href="/slack/oauth/install" style="display:block;padding:13px 24px;background:#1f6feb;color:#fff;font-size:15px;font-weight:600;border-radius:8px;text-decoration:none;margin-bottom:10px;">Add to Slack &mdash; free</a>' +
-      '<a href="/features" style="display:block;padding:11px 24px;background:transparent;color:#8b949e;font-size:14px;border-radius:8px;text-decoration:none;border:1px solid #30363d;">See full features</a>' +
-      '<p style="font-size:12px;color:#484f58;margin-top:16px;">Zero content retention &middot; 2-min setup</p>' +
-    '</div>';
+
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#161b22;border:1px solid #30363d;border-radius:16px;padding:40px 36px;max-width:480px;width:90%;text-align:center;position:relative;';
+
+    var closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cssText = 'position:absolute;top:14px;right:16px;background:none;border:none;color:#8b949e;font-size:20px;cursor:pointer;line-height:1;';
+    closeBtn.addEventListener('click', function () { overlay.style.display = 'none'; });
+
+    var icon = document.createElement('div');
+    icon.style.cssText = 'font-size:28px;margin-bottom:16px;';
+    icon.textContent = '\uD83D\uDEE1\uFE0F';
+
+    var h2 = document.createElement('h2');
+    h2.style.cssText = 'font-size:20px;font-weight:700;margin-bottom:10px;color:#e6edf3;';
+    h2.textContent = isRet ? 'Still thinking it over?' : 'Ready to close the blindspot?';
+
+    var p = document.createElement('p');
+    p.style.cssText = 'font-size:14px;color:#8b949e;margin-bottom:28px;line-height:1.6;';
+    p.textContent = 'One-click Slack install. No agents, no policies, no credit card. Starts protecting in 2 minutes.';
+
+    var ctaBtn = document.createElement('a');
+    ctaBtn.href = '/slack/oauth/install';
+    ctaBtn.style.cssText = 'display:block;padding:13px 24px;background:#1f6feb;color:#fff;font-size:15px;font-weight:600;border-radius:8px;text-decoration:none;margin-bottom:10px;';
+    ctaBtn.textContent = 'Add to Slack \u2014 free';
+
+    var featLink = document.createElement('a');
+    featLink.href = '/features';
+    featLink.style.cssText = 'display:block;padding:11px 24px;background:transparent;color:#8b949e;font-size:14px;border-radius:8px;text-decoration:none;border:1px solid #30363d;';
+    featLink.textContent = 'See full features';
+
+    var fine = document.createElement('p');
+    fine.style.cssText = 'font-size:12px;color:#484f58;margin-top:16px;';
+    fine.textContent = 'Zero content retention \u00B7 2-min setup';
+
+    card.appendChild(closeBtn);
+    card.appendChild(icon);
+    card.appendChild(h2);
+    card.appendChild(p);
+    card.appendChild(ctaBtn);
+    card.appendChild(featLink);
+    card.appendChild(fine);
+    overlay.appendChild(card);
     document.body.appendChild(overlay);
+
     overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.style.display = 'none'; });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') overlay.style.display = 'none'; });
     var triggered = false;
